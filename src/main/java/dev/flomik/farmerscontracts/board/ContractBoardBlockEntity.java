@@ -108,11 +108,21 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         }
     }
 
+    private static final int MAX_DAILY_NEW_FILLS = 3;
+
     private void refillForNewDay(ServerLevel level) {
+        List<Integer> emptySlots = new ArrayList<>();
         for (int i = 0; i < container.getContainerSize(); i++) {
             if (container.getItem(i).isEmpty()) {
-                generateInto(level, i);
+                emptySlots.add(i);
             }
+        }
+
+        int toFill = Math.min(MAX_DAILY_NEW_FILLS, emptySlots.size());
+        for (int i = 0; i < toFill; i++) {
+            int pick = level.getRandom().nextInt(emptySlots.size());
+            int slot = emptySlots.remove(pick);
+            generateInto(level, slot);
         }
 
         int rotations = DAILY_ROTATION_COUNTS[level.getRandom().nextInt(DAILY_ROTATION_COUNTS.length)];
