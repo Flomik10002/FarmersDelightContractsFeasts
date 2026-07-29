@@ -1,7 +1,7 @@
 {
   "values": [
     "#farmersdelight:pies",
-    "#c:foods/cookie",
+    "minecraft:cookie",
     "minecraft:bread",
     "minecraft:cake"
   ]

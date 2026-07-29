@@ -1,6 +1,5 @@
 package dev.flomik.farmerscontracts.contract;
 
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -8,8 +7,6 @@ import net.minecraft.world.level.saveddata.SavedData;
 public class ContractProgress extends SavedData {
 
     private static final String KEY = "farmerscontracts_progress";
-    private static final SavedData.Factory<ContractProgress> FACTORY =
-            new SavedData.Factory<>(ContractProgress::new, ContractProgress::load);
 
     private long completedContracts = 0L;
 
@@ -23,18 +20,19 @@ public class ContractProgress extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    public CompoundTag save(CompoundTag tag) {
         tag.putLong("CompletedContracts", completedContracts);
         return tag;
     }
 
-    private static ContractProgress load(CompoundTag tag, HolderLookup.Provider registries) {
+    private static ContractProgress load(CompoundTag tag) {
         ContractProgress progress = new ContractProgress();
         progress.completedContracts = tag.getLong("CompletedContracts");
         return progress;
     }
 
     public static ContractProgress get(ServerLevel level) {
-        return level.getServer().overworld().getDataStorage().computeIfAbsent(FACTORY, KEY);
+        return level.getServer().overworld().getDataStorage()
+                .computeIfAbsent(ContractProgress::load, ContractProgress::new, KEY);
     }
 }

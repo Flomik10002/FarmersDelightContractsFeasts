@@ -12,12 +12,9 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePiecesBuilder;
-import net.minecraft.world.level.levelgen.structure.pools.DimensionPadding;
 import net.minecraft.world.level.levelgen.structure.pools.JigsawPlacement;
 import net.minecraft.world.level.levelgen.structure.pools.StructurePoolElement;
 import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool;
-import net.minecraft.world.level.levelgen.structure.pools.alias.PoolAliasLookup;
-import net.minecraft.world.level.levelgen.structure.templatesystem.LiquidSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -48,12 +45,9 @@ public class VillageBoardMixin {
             boolean useExpansionHack,
             Optional<Heightmap.Types> projectStartToHeightmap,
             int maxDistanceFromCenter,
-            PoolAliasLookup poolAliasLookup,
-            DimensionPadding dimensionPadding,
-            LiquidSettings liquidSettings,
             CallbackInfoReturnable<Optional<Structure.GenerationStub>> cir
     ) {
-        if (!isVillageTownCenters(startPool) || isZombieVillage(startPool, poolAliasLookup) || cir.getReturnValue().isEmpty()) {
+        if (!isVillageTownCenters(startPool) || cir.getReturnValue().isEmpty()) {
             return;
         }
 
@@ -79,24 +73,13 @@ public class VillageBoardMixin {
                 .isPresent();
     }
 
-    private static boolean isZombieVillage(Holder<StructureTemplatePool> startPool, PoolAliasLookup lookup) {
-        return startPool.unwrapKey()
-                .map(key -> {
-                    String housesPath = key.location().getPath().replace("/town_centers", "/houses");
-                    ResourceKey<StructureTemplatePool> housesKey =
-                            ResourceKey.create(Registries.TEMPLATE_POOL, ResourceLocation.fromNamespaceAndPath(key.location().getNamespace(), housesPath));
-                    return lookup.lookup(housesKey).location().getPath().contains("zombie");
-                })
-                .orElse(false);
-    }
-
     private static final int SAFETY_MARGIN = 0;
 
     private static void farmerscontracts$tryAddBoard(Structure.GenerationContext context, BlockPos anchor, StructurePiecesBuilder builder) {
         Holder<StructureProcessorList> processors = context.registryAccess()
                 .registryOrThrow(Registries.PROCESSOR_LIST)
                 .getHolderOrThrow(ResourceKey.create(Registries.PROCESSOR_LIST,
-                        ResourceLocation.fromNamespaceAndPath("farmerscontracts", "village_wood_by_biome")));
+                        new ResourceLocation("farmerscontracts", "village_wood_by_biome")));
         StructurePoolElement element = StructurePoolElement.single("farmerscontracts:board", processors)
                 .apply(StructureTemplatePool.Projection.RIGID);
         RandomSource random = context.random();
@@ -129,7 +112,7 @@ public class VillageBoardMixin {
 
             PoolElementStructurePiece piece = new PoolElementStructurePiece(
                     context.structureTemplateManager(), element, pos, element.getGroundLevelDelta(),
-                    rotation, bounds, LiquidSettings.APPLY_WATERLOGGING);
+                    rotation, bounds);
             builder.addPiece(piece);
             return;
         }

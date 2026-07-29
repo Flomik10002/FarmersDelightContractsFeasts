@@ -4,13 +4,14 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.Holder;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -33,9 +34,9 @@ public final class RecipeCostSolver {
     private static final double UNKNOWN_FOOD_NUTRITION_FACTOR = 0.14;
     private static final double UNKNOWN_FOOD_PROTEIN_BONUS = 1.35;
     private static final TagKey<Item> RAW_MEAT_TAG =
-            TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "foods/raw_meat"));
+            TagKey.create(Registries.ITEM, new ResourceLocation("forge", "raw_meat"));
     private static final TagKey<Item> RAW_FISH_TAG =
-            TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "foods/raw_fish"));
+            TagKey.create(Registries.ITEM, new ResourceLocation("forge", "raw_fishes"));
 
     private static final Map<String, Double> BASE_COSTS = Map.ofEntries(
             Map.entry("minecraft:wheat", 1.0),
@@ -144,15 +145,15 @@ public final class RecipeCostSolver {
 
     private static double unknownItemCost(ResourceLocation itemId) {
         Item item = BuiltInRegistries.ITEM.get(itemId);
-        FoodProperties food = item.components().get(DataComponents.FOOD);
+        FoodProperties food = item.getFoodProperties(new ItemStack(item), null);
         if (food == null) {
             return FALLBACK_COST;
         }
-        boolean isProtein = BuiltInRegistries.ITEM.getHolder(itemId)
+        boolean isProtein = BuiltInRegistries.ITEM.getHolder(ResourceKey.create(Registries.ITEM, itemId))
                 .map(holder -> holder.is(RAW_MEAT_TAG) || holder.is(RAW_FISH_TAG))
                 .orElse(false);
         double estimate = UNKNOWN_FOOD_BASE
-                + UNKNOWN_FOOD_NUTRITION_FACTOR * food.nutrition()
+                + UNKNOWN_FOOD_NUTRITION_FACTOR * food.getNutrition()
                 + (isProtein ? UNKNOWN_FOOD_PROTEIN_BONUS : 0.0);
         return Math.max(FALLBACK_COST, estimate);
     }
@@ -182,11 +183,11 @@ public final class RecipeCostSolver {
         }
         JsonObject obj = ingredient.getAsJsonObject();
         if (obj.has("item")) {
-            return ResourceLocation.parse(obj.get("item").getAsString()).equals(itemId);
+            return new ResourceLocation(obj.get("item").getAsString()).equals(itemId);
         }
         if (obj.has("tag")) {
-            TagKey<Item> tag = TagKey.create(Registries.ITEM, ResourceLocation.parse(obj.get("tag").getAsString()));
-            return BuiltInRegistries.ITEM.getHolder(itemId).map(holder -> holder.is(tag)).orElse(false);
+            TagKey<Item> tag = TagKey.create(Registries.ITEM, new ResourceLocation(obj.get("tag").getAsString()));
+            return BuiltInRegistries.ITEM.getHolder(ResourceKey.create(Registries.ITEM, itemId)).map(holder -> holder.is(tag)).orElse(false);
         }
         return false;
     }
@@ -206,10 +207,10 @@ public final class RecipeCostSolver {
 
         JsonObject obj = ingredient.getAsJsonObject();
         if (obj.has("item")) {
-            return solve(ResourceLocation.parse(obj.get("item").getAsString()), visiting);
+            return solve(new ResourceLocation(obj.get("item").getAsString()), visiting);
         }
         if (obj.has("tag")) {
-            TagKey<Item> tag = TagKey.create(Registries.ITEM, ResourceLocation.parse(obj.get("tag").getAsString()));
+            TagKey<Item> tag = TagKey.create(Registries.ITEM, new ResourceLocation(obj.get("tag").getAsString()));
             double best = Double.MAX_VALUE;
             for (Holder<Item> holder : BuiltInRegistries.ITEM.getTagOrEmpty(tag)) {
                 best = Math.min(best, solve(BuiltInRegistries.ITEM.getKey(holder.value()), visiting));
@@ -232,8 +233,22 @@ public final class RecipeCostSolver {
             case "farmersdelight:cutting" -> parseCutting(json);
             case "minecraft:smelting", "minecraft:smoking", "minecraft:campfire_cooking", "minecraft:blasting" ->
                     parseSingleIngredient(json);
+            case "forge:conditional" -> parseConditional(json);
             default -> List.of();
         };
+    }
+
+    private static List<ParsedOutput> parseConditional(JsonObject json) {
+        if (!json.has("recipes")) {
+            return List.of();
+        }
+        List<ParsedOutput> outputs = new ArrayList<>();
+        for (JsonElement entry : json.getAsJsonArray("recipes")) {
+            if (entry.isJsonObject() && entry.getAsJsonObject().has("recipe")) {
+                outputs.addAll(parse(entry.getAsJsonObject().get("recipe")));
+            }
+        }
+        return outputs;
     }
 
     private static List<ParsedOutput> parseFlat(JsonObject json) {
@@ -303,13 +318,13 @@ public final class RecipeCostSolver {
 
     private static Optional<ResourceLocation> resultId(JsonElement resultElement) {
         if (resultElement.isJsonPrimitive()) {
-            return Optional.of(ResourceLocation.parse(resultElement.getAsString()));
+            return Optional.of(new ResourceLocation(resultElement.getAsString()));
         }
         if (resultElement.isJsonObject()) {
             JsonObject obj = resultElement.getAsJsonObject();
             String key = obj.has("id") ? "id" : obj.has("item") ? "item" : null;
             if (key != null) {
-                return Optional.of(ResourceLocation.parse(obj.get(key).getAsString()));
+                return Optional.of(new ResourceLocation(obj.get(key).getAsString()));
             }
         }
         return Optional.empty();

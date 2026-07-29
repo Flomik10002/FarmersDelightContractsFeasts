@@ -1,6 +1,9 @@
 package dev.flomik.farmerscontracts.contract;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.Dynamic;
+import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -17,8 +20,19 @@ public record ContractPoolEntry(
         List<String> markers,
         List<String> forbidMarkers
 ) {
+    private static final Codec<Ingredient> INGREDIENT_CODEC = Codec.PASSTHROUGH.comapFlatMap(
+            dynamic -> {
+                try {
+                    return DataResult.success(Ingredient.fromJson(dynamic.convert(JsonOps.INSTANCE).getValue()));
+                } catch (Exception e) {
+                    return DataResult.error(() -> "Failed to parse ingredient: " + e.getMessage());
+                }
+            },
+            ingredient -> new Dynamic<>(JsonOps.INSTANCE, ingredient.toJson())
+    );
+
     public static final Codec<ContractPoolEntry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Ingredient.CODEC.fieldOf("item").forGetter(ContractPoolEntry::item),
+            INGREDIENT_CODEC.fieldOf("item").forGetter(ContractPoolEntry::item),
             IntRange.CODEC.fieldOf("amount").forGetter(ContractPoolEntry::amount),
             Codec.DOUBLE.optionalFieldOf("unit_worth").forGetter(ContractPoolEntry::unitWorth),
             Codec.DOUBLE.optionalFieldOf("weight", 1.0).forGetter(ContractPoolEntry::weight),

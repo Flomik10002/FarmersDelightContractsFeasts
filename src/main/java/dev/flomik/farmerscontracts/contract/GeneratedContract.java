@@ -1,12 +1,11 @@
 package dev.flomik.farmerscontracts.contract;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public record GeneratedContract(
@@ -18,24 +17,33 @@ public record GeneratedContract(
         long expiresAtGameTime
 ) {
 
-    public static final Codec<GeneratedContract> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            ResourceLocation.CODEC.fieldOf("customer_id").forGetter(GeneratedContract::customerId),
-            Codec.STRING.fieldOf("customer_name").forGetter(GeneratedContract::customerName),
-            ContractRarity.CODEC.fieldOf("rarity").forGetter(GeneratedContract::rarity),
-            GeneratedLine.CODEC.listOf().fieldOf("objectives").forGetter(GeneratedContract::objectives),
-            RewardBundle.CODEC.fieldOf("rewards").forGetter(GeneratedContract::rewardBundle),
-            Codec.LONG.fieldOf("expires_at").forGetter(GeneratedContract::expiresAtGameTime)
-    ).apply(instance, GeneratedContract::new));
+    public CompoundTag toNbt() {
+        CompoundTag tag = new CompoundTag();
+        tag.putString("CustomerId", customerId.toString());
+        tag.putString("CustomerName", customerName);
+        tag.putString("Rarity", rarity.getSerializedName());
+        ListTag objectivesTag = new ListTag();
+        for (GeneratedLine line : objectives) {
+            objectivesTag.add(line.toNbt());
+        }
+        tag.put("Objectives", objectivesTag);
+        tag.put("Rewards", rewardBundle.toNbt());
+        tag.putLong("ExpiresAt", expiresAtGameTime);
+        return tag;
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, GeneratedContract> STREAM_CODEC = StreamCodec.composite(
-            ResourceLocation.STREAM_CODEC, GeneratedContract::customerId,
-            ByteBufCodecs.STRING_UTF8, GeneratedContract::customerName,
-            ContractRarity.STREAM_CODEC, GeneratedContract::rarity,
-            GeneratedLine.STREAM_CODEC.apply(ByteBufCodecs.list()), GeneratedContract::objectives,
-            RewardBundle.STREAM_CODEC, GeneratedContract::rewardBundle,
-            ByteBufCodecs.VAR_LONG, GeneratedContract::expiresAtGameTime,
-            GeneratedContract::new
-    );
+    public static GeneratedContract fromNbt(CompoundTag tag) {
+        ResourceLocation customerId = new ResourceLocation(tag.getString("CustomerId"));
+        String customerName = tag.getString("CustomerName");
+        ContractRarity rarity = ContractRarity.byName(tag.getString("Rarity"));
+        List<GeneratedLine> objectives = new ArrayList<>();
+        for (Tag lineTag : tag.getList("Objectives", Tag.TAG_COMPOUND)) {
+            objectives.add(GeneratedLine.fromNbt((CompoundTag) lineTag));
+        }
+        RewardBundle rewardBundle = RewardBundle.fromNbt(tag.getCompound("Rewards"));
+        long expiresAtGameTime = tag.getLong("ExpiresAt");
+        return new GeneratedContract(customerId, customerName, rarity, objectives, rewardBundle, expiresAtGameTime);
+    }
 
     public List<GeneratedLine> rewards() {
         return rewardBundle.items();

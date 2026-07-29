@@ -1,10 +1,6 @@
 package dev.flomik.farmerscontracts.contract;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -15,18 +11,18 @@ import java.util.Map;
 
 public record GeneratedLine(ItemStack stack, int amount, double worth) {
 
-    public static final Codec<GeneratedLine> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            ItemStack.CODEC.fieldOf("stack").forGetter(GeneratedLine::stack),
-            Codec.INT.fieldOf("amount").forGetter(GeneratedLine::amount),
-            Codec.DOUBLE.fieldOf("worth").forGetter(GeneratedLine::worth)
-    ).apply(instance, GeneratedLine::new));
+    public CompoundTag toNbt() {
+        CompoundTag tag = new CompoundTag();
+        tag.put("Stack", stack.save(new CompoundTag()));
+        tag.putInt("Amount", amount);
+        tag.putDouble("Worth", worth);
+        return tag;
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, GeneratedLine> STREAM_CODEC = StreamCodec.composite(
-            ItemStack.STREAM_CODEC, GeneratedLine::stack,
-            ByteBufCodecs.VAR_INT, GeneratedLine::amount,
-            ByteBufCodecs.DOUBLE, GeneratedLine::worth,
-            GeneratedLine::new
-    );
+    public static GeneratedLine fromNbt(CompoundTag tag) {
+        ItemStack stack = ItemStack.of(tag.getCompound("Stack"));
+        return new GeneratedLine(stack, tag.getInt("Amount"), tag.getDouble("Worth"));
+    }
 
     public static List<GeneratedLine> mergeByItem(List<GeneratedLine> lines) {
         Map<Item, GeneratedLine> merged = new LinkedHashMap<>();

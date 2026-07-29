@@ -92,7 +92,7 @@ public class WoodByBiomeProcessor extends StructureProcessor {
             return absoluteBlockInfo;
         }
 
-        Block newBlock = BuiltInRegistries.BLOCK.getOptional(ResourceLocation.withDefaultNamespace(newPath)).orElse(null);
+        Block newBlock = BuiltInRegistries.BLOCK.getOptional(new ResourceLocation("minecraft", newPath)).orElse(null);
         if (newBlock == null) {
             return absoluteBlockInfo;
         }

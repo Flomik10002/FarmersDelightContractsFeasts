@@ -11,7 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 public class ContractBoardScreen extends AbstractContainerScreen<ContractBoardMenu> {
 
     private static final ResourceLocation TEXTURE =
-            ResourceLocation.fromNamespaceAndPath(FarmersContractsMod.MODID, "textures/gui/contract_board.png");
+            new ResourceLocation(FarmersContractsMod.MODID, "textures/gui/contract_board.png");
 
     public ContractBoardScreen(ContractBoardMenu menu, Inventory playerInventory, Component title) {
         super(menu, playerInventory, title);

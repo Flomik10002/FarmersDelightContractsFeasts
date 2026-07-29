@@ -22,7 +22,7 @@ public class ContractDataReloadListener extends SimplePreparableReloadListener<C
 
     public static final String POOLS_DIRECTORY = "contract_pool";
     public static final String CUSTOMERS_DIRECTORY = "customer";
-    public static final String RECIPES_DIRECTORY = "recipe";
+    public static final String RECIPES_DIRECTORY = "recipes";
 
     record LoadedData(Map<ResourceLocation, JsonElement> pools, Map<ResourceLocation, JsonElement> customers,
                        Map<ResourceLocation, JsonElement> recipes) {

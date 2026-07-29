@@ -1,8 +1,6 @@
 package dev.flomik.farmerscontracts.board;
 
-import com.mojang.serialization.MapCodec;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
-import dev.flomik.farmerscontracts.contract.ContractDataComponents;
 import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import dev.flomik.farmerscontracts.contract.GeneratedLine;
@@ -14,7 +12,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -40,12 +37,7 @@ public class ContractBoardBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return simpleCodec(ContractBoardBlock::new);
-    }
-
-    @Override
-    protected RenderShape getRenderShape(BlockState state) {
+    public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
     }
 
@@ -62,39 +54,27 @@ public class ContractBoardBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
+    public MenuProvider getMenuProvider(BlockState state, Level level, BlockPos pos) {
         BlockEntity entity = level.getBlockEntity(pos);
         return entity instanceof MenuProvider provider ? provider : null;
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(
-            ItemStack stack,
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            InteractionHand hand,
-            BlockHitResult hit
-    ) {
-        if (player.isShiftKeyDown() || !(stack.getItem() instanceof ContractTicketItem)) {
-            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-        }
-
-        if (level.isClientSide) {
-            return ItemInteractionResult.SUCCESS;
-        }
-
-        return tryTurnIn((ServerLevel) level, (ServerPlayer) player, stack)
-                ? ItemInteractionResult.CONSUME
-                : ItemInteractionResult.FAIL;
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (player.isShiftKeyDown()) {
             return InteractionResult.PASS;
         }
+
+        ItemStack stack = player.getItemInHand(hand);
+        if (stack.getItem() instanceof ContractTicketItem) {
+            if (level.isClientSide) {
+                return InteractionResult.SUCCESS;
+            }
+            return tryTurnIn((ServerLevel) level, (ServerPlayer) player, stack)
+                    ? InteractionResult.CONSUME
+                    : InteractionResult.FAIL;
+        }
+
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
@@ -107,7 +87,7 @@ public class ContractBoardBlock extends BaseEntityBlock {
     }
 
     private boolean tryTurnIn(ServerLevel level, ServerPlayer player, ItemStack ticket) {
-        GeneratedContract contract = ticket.get(ContractDataComponents.CONTRACT_DATA.get());
+        GeneratedContract contract = ContractTicketItem.dataOf(ticket);
         if (contract == null) {
             return false;
         }

@@ -1,11 +1,8 @@
 package dev.flomik.farmerscontracts.contract;
 
 import com.mojang.serialization.Codec;
-import io.netty.buffer.ByteBuf;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.util.StringRepresentable;
 
 public enum ContractRarity implements StringRepresentable {
@@ -16,9 +13,16 @@ public enum ContractRarity implements StringRepresentable {
 
     private static final double WEIGHT_SCALING = 2.25;
 
-    public static final Codec<ContractRarity> CODEC = StringRepresentable.fromValues(ContractRarity::values);
-    public static final StreamCodec<ByteBuf, ContractRarity> STREAM_CODEC =
-            ByteBufCodecs.idMapper(id -> ContractRarity.values()[id], ContractRarity::ordinal);
+    public static final Codec<ContractRarity> CODEC = StringRepresentable.fromEnum(ContractRarity::values);
+
+    public static ContractRarity byName(String name) {
+        for (ContractRarity rarity : values()) {
+            if (rarity.serializedName.equals(name)) {
+                return rarity;
+            }
+        }
+        return COMMON;
+    }
 
     private final String serializedName;
     private final TextColor color;

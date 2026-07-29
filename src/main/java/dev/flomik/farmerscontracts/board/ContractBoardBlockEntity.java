@@ -2,15 +2,15 @@ package dev.flomik.farmerscontracts.board;
 
 import dev.flomik.farmerscontracts.FarmersContractsMod;
 import dev.flomik.farmerscontracts.contract.ContractContent;
-import dev.flomik.farmerscontracts.contract.ContractDataComponents;
 import dev.flomik.farmerscontracts.contract.ContractGenerator;
 import dev.flomik.farmerscontracts.contract.Customer;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
+import dev.flomik.farmerscontracts.item.ContractTicketItem;
 import dev.flomik.farmerscontracts.villager.ContractVillagerMemories;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -82,7 +82,7 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
             if (stack.isEmpty()) {
                 continue;
             }
-            GeneratedContract contract = stack.get(ContractDataComponents.CONTRACT_DATA.get());
+            GeneratedContract contract = ContractTicketItem.dataOf(stack);
             if (contract != null && contract.isExpired(level.getGameTime())) {
                 container.setItem(i, ItemStack.EMPTY);
                 clearMask(i);
@@ -137,7 +137,7 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         }
 
         ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
-        ticket.set(ContractDataComponents.CONTRACT_DATA.get(), generated.get());
+        ContractTicketItem.setData(ticket, generated.get());
         container.setItem(slot, ticket);
         clearMask(slot);
         return true;
@@ -150,7 +150,7 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         double totalWeight = 0;
         for (int i = 0; i < container.getContainerSize(); i++) {
             ItemStack stack = container.getItem(i);
-            GeneratedContract contract = stack.get(ContractDataComponents.CONTRACT_DATA.get());
+            GeneratedContract contract = ContractTicketItem.dataOf(stack);
             if (contract == null) {
                 continue;
             }
@@ -210,9 +210,20 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.saveAdditional(tag, registries);
-        tag.put("Items", container.createTag(registries));
+    protected void saveAdditional(CompoundTag tag) {
+        super.saveAdditional(tag);
+        ListTag itemsTag = new ListTag();
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            ItemStack stack = container.getItem(i);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            CompoundTag itemTag = new CompoundTag();
+            itemTag.putInt("Slot", i);
+            stack.save(itemTag);
+            itemsTag.add(itemTag);
+        }
+        tag.put("Items", itemsTag);
         tag.putLong("LastRefillDay", lastRefillDay);
 
         ListTag masksTag = new ListTag();
@@ -230,13 +241,23 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        super.loadAdditional(tag, registries);
-        container.fromTag(tag.getList("Items", 10), registries);
+    public void load(CompoundTag tag) {
+        super.load(tag);
+        for (int i = 0; i < container.getContainerSize(); i++) {
+            container.setItem(i, ItemStack.EMPTY);
+        }
+        ListTag itemsTag = tag.getList("Items", Tag.TAG_COMPOUND);
+        for (int i = 0; i < itemsTag.size(); i++) {
+            CompoundTag itemTag = itemsTag.getCompound(i);
+            int slot = itemTag.getInt("Slot");
+            if (slot >= 0 && slot < container.getContainerSize()) {
+                container.setItem(slot, ItemStack.of(itemTag));
+            }
+        }
         lastRefillDay = tag.contains("LastRefillDay") ? tag.getLong("LastRefillDay") : -1L;
 
         takenSlots.clear();
-        ListTag masksTag = tag.getList("TakenMasks", 10);
+        ListTag masksTag = tag.getList("TakenMasks", Tag.TAG_COMPOUND);
         for (int i = 0; i < masksTag.size(); i++) {
             CompoundTag maskTag = masksTag.getCompound(i);
             UUID player = maskTag.getUUID("Player");

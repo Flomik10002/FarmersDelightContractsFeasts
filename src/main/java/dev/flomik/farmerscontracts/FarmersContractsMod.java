@@ -6,7 +6,6 @@ import dev.flomik.farmerscontracts.board.ContractBoardBlockEntity;
 import dev.flomik.farmerscontracts.board.ContractBoardMenu;
 import dev.flomik.farmerscontracts.client.ContractBoardScreen;
 import dev.flomik.farmerscontracts.contract.BalanceCheck;
-import dev.flomik.farmerscontracts.contract.ContractDataComponents;
 import dev.flomik.farmerscontracts.contract.ContractDataReloadListener;
 import dev.flomik.farmerscontracts.contract.ContractDebugCommand;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
@@ -16,6 +15,7 @@ import dev.flomik.farmerscontracts.villager.ContractVillagerMemories;
 import dev.flomik.farmerscontracts.worldgen.WorldgenRegistry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.MenuType;
@@ -24,23 +24,24 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
-import net.neoforged.neoforge.event.AddReloadListenerEvent;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
-import net.neoforged.neoforge.event.server.ServerStartingEvent;
-import net.neoforged.neoforge.registries.DeferredBlock;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.extensions.IForgeMenuType;
+import net.minecraftforge.event.AddReloadListenerEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -50,29 +51,29 @@ public class FarmersContractsMod {
     public static final String MODID = "farmerscontracts";
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MODID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITY_TYPES =
-            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
+            DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, MODID);
     public static final DeferredRegister<MenuType<?>> MENU_TYPES =
-            DeferredRegister.create(Registries.MENU, MODID);
+            DeferredRegister.create(ForgeRegistries.MENU_TYPES, MODID);
 
-    public static final DeferredBlock<ContractBoardBlock> CONTRACT_BOARD = BLOCKS.register(
+    public static final RegistryObject<ContractBoardBlock> CONTRACT_BOARD = BLOCKS.register(
             "contract_board", () -> new ContractBoardBlock(BlockBehaviour.Properties.of()));
-    public static final DeferredItem<BlockItem> CONTRACT_BOARD_ITEM =
-            ITEMS.registerSimpleBlockItem("contract_board", CONTRACT_BOARD);
-    public static final DeferredItem<ContractTicketItem> CONTRACT_TICKET =
+    public static final RegistryObject<BlockItem> CONTRACT_BOARD_ITEM = ITEMS.register(
+            "contract_board", () -> new BlockItem(CONTRACT_BOARD.get(), new Item.Properties()));
+    public static final RegistryObject<ContractTicketItem> CONTRACT_TICKET =
             ITEMS.register("contract_ticket", () -> new ContractTicketItem(new Item.Properties()));
-    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ContractBoardBlockEntity>> CONTRACT_BOARD_ENTITY =
+    public static final RegistryObject<BlockEntityType<ContractBoardBlockEntity>> CONTRACT_BOARD_ENTITY =
             BLOCK_ENTITY_TYPES.register("contract_board", () -> BlockEntityType.Builder.of(
                     ContractBoardBlockEntity::new, CONTRACT_BOARD.get()).build(null));
-    public static final DeferredHolder<MenuType<?>, MenuType<ContractBoardMenu>> CONTRACT_BOARD_MENU =
-            MENU_TYPES.register("contract_board", () -> IMenuTypeExtension.create(
+    public static final RegistryObject<MenuType<ContractBoardMenu>> CONTRACT_BOARD_MENU =
+            MENU_TYPES.register("contract_board", () -> IForgeMenuType.create(
                     (windowId, inv, data) -> new ContractBoardMenu(windowId, inv)));
 
-    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> CONTRACTS_TAB =
+    public static final RegistryObject<CreativeModeTab> CONTRACTS_TAB =
             CREATIVE_MODE_TABS.register("contracts_tab", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.farmerscontracts"))
                     .icon(() -> CONTRACT_BOARD_ITEM.get().getDefaultInstance())
@@ -82,24 +83,25 @@ public class FarmersContractsMod {
                     })
                     .build());
 
-    public FarmersContractsMod(IEventBus modEventBus, ModContainer modContainer) {
+    public FarmersContractsMod() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
         BLOCK_ENTITY_TYPES.register(modEventBus);
         MENU_TYPES.register(modEventBus);
-        ContractDataComponents.COMPONENTS.register(modEventBus);
         ContractVillagerMemories.MEMORY_MODULE_TYPES.register(modEventBus);
         WorldgenRegistry.STRUCTURE_PROCESSOR_TYPES.register(modEventBus);
 
-        modEventBus.addListener(this::onRegisterMenuScreens);
+        modEventBus.addListener(this::onClientSetup);
 
-        NeoForge.EVENT_BUS.register(this);
-        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        MinecraftForge.EVENT_BUS.register(this);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
-    private void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
-        event.register(CONTRACT_BOARD_MENU.get(), ContractBoardScreen::new);
+    private void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> MenuScreens.register(CONTRACT_BOARD_MENU.get(), ContractBoardScreen::new));
     }
 
     @SubscribeEvent

@@ -1,19 +1,29 @@
 package dev.flomik.farmerscontracts.item;
 
-import dev.flomik.farmerscontracts.contract.ContractDataComponents;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 public class ContractTicketItem extends Item {
 
+    private static final String CONTRACT_KEY = "Contract";
+
     public ContractTicketItem(Properties properties) {
         super(properties.stacksTo(1).fireResistant());
     }
 
     public static GeneratedContract dataOf(ItemStack stack) {
-        return stack.get(ContractDataComponents.CONTRACT_DATA.get());
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.contains(CONTRACT_KEY)) {
+            return null;
+        }
+        return GeneratedContract.fromNbt(tag.getCompound(CONTRACT_KEY));
+    }
+
+    public static void setData(ItemStack stack, GeneratedContract data) {
+        stack.getOrCreateTag().put(CONTRACT_KEY, data.toNbt());
     }
 
     @Override
@@ -28,6 +38,6 @@ public class ContractTicketItem extends Item {
 
     public static Component customerName(GeneratedContract data) {
         String key = "customer.farmerscontracts." + data.customerId().getPath();
-        return Component.translatableWithFallback(key, data.customerName());
+        return Component.translatable(key);
     }
 }
