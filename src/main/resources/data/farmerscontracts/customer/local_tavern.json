@@ -1,0 +1,6 @@
+{
+  "name": "Local Tavern",
+  "objectives": ["farmerscontracts:hearty_meals_common"],
+  "rewards": ["farmerscontracts:currency"],
+  "bonus_rewards": ["farmerscontracts:bonus_tavern"]
+}

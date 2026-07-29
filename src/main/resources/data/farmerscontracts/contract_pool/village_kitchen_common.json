@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "item": { "tag": "farmerscontracts:kitchen_dishes" },
+      "amount": { "min": 6, "max": 14 },
+      "weight": 1.0,
+      "rarity": "common"
+    },
+    {
+      "item": { "tag": "farmerscontracts:kitchen_dishes" },
+      "amount": { "min": 10, "max": 22 },
+      "weight": 1.0,
+      "rarity": "uncommon"
+    },
+    {
+      "item": { "tag": "farmerscontracts:kitchen_dishes" },
+      "amount": { "min": 15, "max": 35 },
+      "weight": 1.0,
+      "rarity": "rare"
+    },
+    {
+      "item": { "tag": "farmerscontracts:kitchen_dishes" },
+      "amount": { "min": 24, "max": 56 },
+      "weight": 1.0,
+      "rarity": "special"
+    }
+  ]
+}

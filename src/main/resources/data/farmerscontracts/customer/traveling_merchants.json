@@ -1,0 +1,7 @@
+{
+  "name": "Traveling Merchants",
+  "objectives": ["farmerscontracts:traveling_merchant_rare"],
+  "rewards": ["farmerscontracts:currency"],
+  "bonus_rewards": ["farmerscontracts:bonus_merchants"],
+  "weight": 0.2
+}

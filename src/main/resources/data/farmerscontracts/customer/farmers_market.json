@@ -1,0 +1,6 @@
+{
+  "name": "Farmers' Market",
+  "objectives": ["farmerscontracts:farmers_market_common", "farmerscontracts:farmers_market_bulk"],
+  "rewards": ["farmerscontracts:currency"],
+  "bonus_rewards": ["farmerscontracts:bonus_market"]
+}

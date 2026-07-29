@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "item": { "tag": "farmerscontracts:simple_dishes" },
+      "amount": { "min": 3, "max": 6 },
+      "weight": 1.0,
+      "rarity": "common"
+    },
+    {
+      "item": { "tag": "farmerscontracts:simple_dishes" },
+      "amount": { "min": 5, "max": 10 },
+      "weight": 1.0,
+      "rarity": "uncommon"
+    },
+    {
+      "item": { "tag": "farmerscontracts:simple_dishes" },
+      "amount": { "min": 8, "max": 15 },
+      "weight": 1.0,
+      "rarity": "rare"
+    },
+    {
+      "item": { "tag": "farmerscontracts:simple_dishes" },
+      "amount": { "min": 12, "max": 24 },
+      "weight": 1.0,
+      "rarity": "special"
+    }
+  ]
+}

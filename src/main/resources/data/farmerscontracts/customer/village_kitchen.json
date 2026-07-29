@@ -1,0 +1,6 @@
+{
+  "name": "Village Kitchen",
+  "objectives": ["farmerscontracts:village_kitchen_common"],
+  "rewards": ["farmerscontracts:currency"],
+  "bonus_rewards": ["farmerscontracts:bonus_kitchen"]
+}

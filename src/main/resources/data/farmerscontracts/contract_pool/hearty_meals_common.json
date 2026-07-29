@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "item": { "tag": "farmerscontracts:hearty_meals" },
+      "amount": { "min": 8, "max": 16 },
+      "weight": 1.0,
+      "rarity": "common"
+    },
+    {
+      "item": { "tag": "farmerscontracts:hearty_meals" },
+      "amount": { "min": 13, "max": 26 },
+      "weight": 1.0,
+      "rarity": "uncommon"
+    },
+    {
+      "item": { "tag": "farmerscontracts:hearty_meals" },
+      "amount": { "min": 20, "max": 40 },
+      "weight": 1.0,
+      "rarity": "rare"
+    },
+    {
+      "item": { "tag": "farmerscontracts:hearty_meals" },
+      "amount": { "min": 32, "max": 64 },
+      "weight": 1.0,
+      "rarity": "special"
+    }
+  ]
+}

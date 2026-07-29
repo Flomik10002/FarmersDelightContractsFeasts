@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "farmerscontracts:block/top_contract",
+    "bottom": "farmerscontracts:block/bottom_contract",
+    "side": "farmerscontracts:block/side_contract"
+  }
+}

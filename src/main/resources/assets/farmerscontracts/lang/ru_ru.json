@@ -1,0 +1,28 @@
+{
+  "itemGroup.farmerscontracts": "Контракты фермера",
+  "block.farmerscontracts.contract_board": "Доска контрактов",
+  "item.farmerscontracts.contract_ticket": "Контракт",
+  "item.farmerscontracts.contract_ticket.named": "Контракт: %s",
+
+  "customer.farmerscontracts.village_bakery": "Деревенская пекарня",
+  "customer.farmerscontracts.local_tavern": "Местная таверна",
+  "customer.farmerscontracts.farmers_market": "Фермерский рынок",
+  "customer.farmerscontracts.village_kitchen": "Деревенская кухня",
+  "customer.farmerscontracts.traveling_merchants": "Странствующие торговцы",
+  "customer.farmerscontracts.feast": "Праздничный пир",
+
+  "tooltip.farmerscontracts.needs": "Требуется:",
+  "tooltip.farmerscontracts.rewards": "Награда:",
+  "tooltip.farmerscontracts.objective_line": "  (%s/%s) %s",
+  "tooltip.farmerscontracts.reward_line": "  %s x %s",
+  "tooltip.farmerscontracts.xp_line": "  %s опыта",
+  "tooltip.farmerscontracts.expired": "Просрочен",
+  "tooltip.farmerscontracts.time_days": "Осталось %sд %sч",
+  "tooltip.farmerscontracts.time_hours": "Осталось %sч %sм",
+  "tooltip.farmerscontracts.time_minutes": "Осталось %sм %sс",
+
+  "chat.farmerscontracts.expired": "Контракт \"%s\" просрочен.",
+  "chat.farmerscontracts.still_needed": "Всё ещё нужно: %s",
+  "chat.farmerscontracts.fulfilled": "Контракт \"%s\" выполнен!",
+  "chat.farmerscontracts.line_amount": "%s x %s"
+}

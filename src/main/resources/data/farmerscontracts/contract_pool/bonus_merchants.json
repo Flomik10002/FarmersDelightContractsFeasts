@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "item": { "item": "minecraft:golden_apple" },
+      "amount": { "min": 1, "max": 1 },
+      "weight": 1.0,
+      "rarity": "rare"
+    },
+    {
+      "item": { "item": "minecraft:golden_apple" },
+      "amount": { "min": 2, "max": 2 },
+      "weight": 1.0,
+      "rarity": "special"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "item": { "tag": "farmerscontracts:baked_goods" },
+      "amount": { "min": 6, "max": 12 },
+      "weight": 1.0,
+      "rarity": "common"
+    },
+    {
+      "item": { "tag": "farmerscontracts:baked_goods" },
+      "amount": { "min": 10, "max": 19 },
+      "weight": 1.0,
+      "rarity": "uncommon"
+    },
+    {
+      "item": { "tag": "farmerscontracts:baked_goods" },
+      "amount": { "min": 15, "max": 30 },
+      "weight": 1.0,
+      "rarity": "rare"
+    },
+    {
+      "item": { "tag": "farmerscontracts:baked_goods" },
+      "amount": { "min": 24, "max": 48 },
+      "weight": 1.0,
+      "rarity": "special"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "item": { "item": "farmersdelight:apple_cider" },
+      "amount": { "min": 1, "max": 2 },
+      "weight": 1.0,
+      "rarity": "rare"
+    },
+    {
+      "item": { "item": "farmersdelight:honey_glazed_ham" },
+      "amount": { "min": 1, "max": 1 },
+      "weight": 1.0,
+      "rarity": "special"
+    }
+  ]
+}

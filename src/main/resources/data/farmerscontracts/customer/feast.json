@@ -1,0 +1,15 @@
+{
+  "name": "Harvest Feast",
+  "objectives": [
+    "farmerscontracts:feast_mains",
+    "farmerscontracts:feast_baked",
+    "farmerscontracts:feast_sides",
+    "farmerscontracts:feast_desserts",
+    "farmerscontracts:feast_drinks",
+    "farmerscontracts:feast_vegetables"
+  ],
+  "rewards": ["farmerscontracts:currency"],
+  "bonus_rewards": ["farmerscontracts:bonus_feast"],
+  "objective_count": { "min": 2, "max": 5 },
+  "weight": 0.08
+}

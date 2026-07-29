@@ -1,0 +1,28 @@
+{
+  "itemGroup.farmerscontracts": "Farmer's Contracts",
+  "block.farmerscontracts.contract_board": "Contract Board",
+  "item.farmerscontracts.contract_ticket": "Contract",
+  "item.farmerscontracts.contract_ticket.named": "%s Contract",
+
+  "customer.farmerscontracts.village_bakery": "Village Bakery",
+  "customer.farmerscontracts.local_tavern": "Local Tavern",
+  "customer.farmerscontracts.farmers_market": "Farmers' Market",
+  "customer.farmerscontracts.village_kitchen": "Village Kitchen",
+  "customer.farmerscontracts.traveling_merchants": "Traveling Merchants",
+  "customer.farmerscontracts.feast": "Harvest Feast",
+
+  "tooltip.farmerscontracts.needs": "Needs:",
+  "tooltip.farmerscontracts.rewards": "Rewards:",
+  "tooltip.farmerscontracts.objective_line": "  (%s/%s) %s",
+  "tooltip.farmerscontracts.reward_line": "  %sx %s",
+  "tooltip.farmerscontracts.xp_line": "  %s XP",
+  "tooltip.farmerscontracts.expired": "Expired",
+  "tooltip.farmerscontracts.time_days": "%sd %sh left",
+  "tooltip.farmerscontracts.time_hours": "%sh %sm left",
+  "tooltip.farmerscontracts.time_minutes": "%sm %ss left",
+
+  "chat.farmerscontracts.expired": "%s contract has expired.",
+  "chat.farmerscontracts.still_needed": "Still needed: %s",
+  "chat.farmerscontracts.fulfilled": "%s contract fulfilled!",
+  "chat.farmerscontracts.line_amount": "%sx %s"
+}

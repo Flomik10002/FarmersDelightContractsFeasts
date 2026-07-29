@@ -1,0 +1,6 @@
+{
+  "name": "Village Bakery",
+  "objectives": ["farmerscontracts:baked_goods_common"],
+  "rewards": ["farmerscontracts:currency"],
+  "bonus_rewards": ["farmerscontracts:bonus_baked"]
+}

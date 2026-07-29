@@ -1,0 +1,28 @@
+{
+  "itemGroup.farmerscontracts": "农夫契约",
+  "block.farmerscontracts.contract_board": "契约布告板",
+  "item.farmerscontracts.contract_ticket": "契约",
+  "item.farmerscontracts.contract_ticket.named": "%s契约",
+
+  "customer.farmerscontracts.village_bakery": "村庄面包房",
+  "customer.farmerscontracts.local_tavern": "本地酒馆",
+  "customer.farmerscontracts.farmers_market": "农贸市场",
+  "customer.farmerscontracts.village_kitchen": "村庄厨房",
+  "customer.farmerscontracts.traveling_merchants": "行商",
+  "customer.farmerscontracts.feast": "丰收盛宴",
+
+  "tooltip.farmerscontracts.needs": "需求:",
+  "tooltip.farmerscontracts.rewards": "奖励:",
+  "tooltip.farmerscontracts.objective_line": "  (%s/%s) %s",
+  "tooltip.farmerscontracts.reward_line": "  %s x %s",
+  "tooltip.farmerscontracts.xp_line": "  %s 经验",
+  "tooltip.farmerscontracts.expired": "已过期",
+  "tooltip.farmerscontracts.time_days": "剩余%s天%s小时",
+  "tooltip.farmerscontracts.time_hours": "剩余%s小时%s分钟",
+  "tooltip.farmerscontracts.time_minutes": "剩余%s分%s秒",
+
+  "chat.farmerscontracts.expired": "%s契约已过期。",
+  "chat.farmerscontracts.still_needed": "仍需要: %s",
+  "chat.farmerscontracts.fulfilled": "%s契约已完成！",
+  "chat.farmerscontracts.line_amount": "%s x %s"
+}
