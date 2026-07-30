@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import dev.flomik.farmerscontracts.board.ContractBoardBlock;
 import dev.flomik.farmerscontracts.board.ContractBoardBlockEntity;
 import dev.flomik.farmerscontracts.board.ContractBoardMenu;
+import dev.flomik.farmerscontracts.board.SelfTest;
 import dev.flomik.farmerscontracts.client.ContractBoardScreen;
 import dev.flomik.farmerscontracts.contract.BalanceCheck;
 import dev.flomik.farmerscontracts.contract.ContractDataReloadListener;
@@ -34,6 +35,7 @@ import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import net.minecraftforge.event.level.SleepFinishedTimeEvent;
+import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -113,6 +115,17 @@ public class FarmersContractsMod {
 
         if (BalanceCheck.isRequested()) {
             BalanceCheck.run();
+            event.getServer().halt(false);
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerStarted(ServerStartedEvent event) {
+        // Needs a fully-ticking world (chunk loading, block placement) - unlike BalanceCheck,
+        // which is pure data-driven math and runs earlier in onServerStarting.
+        if (SelfTest.isRequested()) {
+            boolean passed = SelfTest.run(event.getServer());
+            LOGGER.info(passed ? "SelfTest passed" : "SelfTest FAILED");
             event.getServer().halt(false);
         }
     }

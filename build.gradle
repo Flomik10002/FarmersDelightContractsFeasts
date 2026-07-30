@@ -85,6 +85,25 @@ minecraft {
             }
         }
 
+        // Dedicated task for the headless regression checks in SelfTest.java: boots a plain
+        // dedicated server, waits for it to be fully up (ServerStartedEvent - world/chunks ready,
+        // unlike the earlier ServerStartingEvent that BalanceCheck uses), runs the checks, logs
+        // PASS/FAIL per check plus a summary, then shuts itself down. `./gradlew runServerSelfTest`.
+        serverSelfTest {
+            parent runs.server
+            environment 'target', 'forgeserveruserdev'
+            workingDirectory project.file('run/selfTest')
+            arg '-mixin.config=farmerscontracts.mixins.json'
+            args '--nogui'
+            property 'farmerscontracts.selftest', 'true'
+
+            mods {
+                farmerscontracts {
+                    source sourceSets.main
+                }
+            }
+        }
+
         gameTestServer {
             workingDirectory project.file('run/gameTestServer')
             arg '-mixin.config=farmerscontracts.mixins.json'

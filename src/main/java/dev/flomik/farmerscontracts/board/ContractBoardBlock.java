@@ -86,7 +86,9 @@ public class ContractBoardBlock extends BaseEntityBlock {
         return InteractionResult.CONSUME;
     }
 
-    private boolean tryTurnIn(ServerLevel level, ServerPlayer player, ItemStack ticket) {
+    // Package-private (not private) so SelfTest can exercise it directly without going through
+    // the full block-interaction/BlockHitResult plumbing.
+    boolean tryTurnIn(ServerLevel level, ServerPlayer player, ItemStack ticket) {
         GeneratedContract contract = ContractTicketItem.dataOf(ticket);
         if (contract == null) {
             return false;
