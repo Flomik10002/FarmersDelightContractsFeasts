@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import dev.flomik.farmerscontracts.board.ContractBoardBlock;
 import dev.flomik.farmerscontracts.board.ContractBoardBlockEntity;
 import dev.flomik.farmerscontracts.board.ContractBoardMenu;
+import dev.flomik.farmerscontracts.board.SelfTest;
 import dev.flomik.farmerscontracts.client.ContractBoardScreen;
 import dev.flomik.farmerscontracts.contract.BalanceCheck;
 import dev.flomik.farmerscontracts.contract.ContractDataComponents;
@@ -39,6 +40,7 @@ import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 import net.neoforged.neoforge.event.level.SleepFinishedTimeEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -111,6 +113,17 @@ public class FarmersContractsMod {
 
         if (BalanceCheck.isRequested()) {
             BalanceCheck.run();
+            event.getServer().halt(false);
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerStarted(ServerStartedEvent event) {
+        // Needs a fully-ticking world (chunk loading, block placement) - unlike BalanceCheck,
+        // which is pure data-driven math and runs earlier in onServerStarting.
+        if (SelfTest.isRequested()) {
+            boolean passed = SelfTest.run(event.getServer());
+            LOGGER.info(passed ? "SelfTest passed" : "SelfTest FAILED");
             event.getServer().halt(false);
         }
     }

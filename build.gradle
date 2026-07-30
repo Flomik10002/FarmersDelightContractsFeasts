@@ -52,6 +52,18 @@ runs {
         argument '--nogui'
     }
 
+    // Dedicated task for the headless regression checks in SelfTest.java: boots a plain dedicated
+    // server, waits for it to be fully up (ServerStartedEvent - world/chunks ready, unlike the
+    // earlier ServerStartingEvent that BalanceCheck uses), runs the checks, logs PASS/FAIL per
+    // check plus a summary, then shuts itself down. `./gradlew runSelfTest`.
+    selfTest {
+        configureFromTypeWithName = false
+        runType 'server'
+        systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
+        systemProperty 'farmerscontracts.selftest', 'true'
+        argument '--nogui'
+    }
+
     gameTestServer {
         systemProperty 'neoforge.enabledGameTestNamespaces', mod_id
     }
