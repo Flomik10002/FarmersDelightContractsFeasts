@@ -8,6 +8,7 @@ import dev.flomik.farmerscontracts.client.ContractBoardScreen;
 import dev.flomik.farmerscontracts.contract.BalanceCheck;
 import dev.flomik.farmerscontracts.contract.ContractDataReloadListener;
 import dev.flomik.farmerscontracts.contract.ContractDebugCommand;
+import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import dev.flomik.farmerscontracts.contract.GeneratedLine;
 import dev.flomik.farmerscontracts.item.ContractTicketItem;
@@ -17,6 +18,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -31,6 +33,7 @@ import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
+import net.minecraftforge.event.level.SleepFinishedTimeEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -122,6 +125,17 @@ public class FarmersContractsMod {
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         ContractDebugCommand.register(event.getDispatcher());
+    }
+
+    @SubscribeEvent
+    public void onSleepFinished(SleepFinishedTimeEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        // Fired before the skip is applied, so getDayTime() here is still the pre-skip value -
+        // the delta is exactly how many ticks vanilla is about to fast-forward through.
+        long ticksSkipped = event.getNewTime() - serverLevel.getDayTime();
+        ContractProgress.get(serverLevel).addSleepDayOffset(serverLevel.dimension(), ticksSkipped);
     }
 
     @SubscribeEvent

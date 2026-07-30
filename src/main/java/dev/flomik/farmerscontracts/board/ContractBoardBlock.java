@@ -98,8 +98,16 @@ public class ContractBoardBlock extends BaseEntityBlock {
             return true;
         }
 
+        // Merge by item first: ContractGenerator can legitimately produce two objective lines
+        // for the same item (e.g. once a pool's "unused item" pick is exhausted, it falls back to
+        // reusing one already picked). Checking/consuming raw per-line amounts against the
+        // player's inventory independently would under-count the real total needed - e.g. two
+        // lines of 5 and 3 wheat would each individually pass with only 5 wheat on hand instead
+        // of requiring 8, and consumption would then silently come up short on the second line.
+        List<GeneratedLine> objectives = GeneratedLine.mergeByItem(contract.objectives());
+
         List<GeneratedLine> missing = new ArrayList<>();
-        for (GeneratedLine objective : contract.objectives()) {
+        for (GeneratedLine objective : objectives) {
             Item item = objective.stack().getItem();
             if (countMatching(player, item) < objective.amount()) {
                 missing.add(objective);
@@ -111,7 +119,7 @@ public class ContractBoardBlock extends BaseEntityBlock {
             return false;
         }
 
-        for (GeneratedLine objective : contract.objectives()) {
+        for (GeneratedLine objective : objectives) {
             consumeMatching(player, objective.stack().getItem(), objective.amount());
         }
 
