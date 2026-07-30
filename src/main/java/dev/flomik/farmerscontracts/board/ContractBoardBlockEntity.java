@@ -3,6 +3,7 @@ package dev.flomik.farmerscontracts.board;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
 import dev.flomik.farmerscontracts.contract.ContractContent;
 import dev.flomik.farmerscontracts.contract.ContractGenerator;
+import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.Customer;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import dev.flomik.farmerscontracts.item.ContractTicketItem;
@@ -47,7 +48,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
     private static final double VILLAGER_SEARCH_RADIUS = 24.0;
 
     private final SimpleContainer container = new SimpleContainer(SLOTS);
-    private long lastRefillDay = -1L;
     private final Map<UUID, Set<Integer>> takenSlots = new HashMap<>();
 
     public ContractBoardBlockEntity(BlockPos pos, BlockState state) {
@@ -234,7 +234,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
             itemsTag.add(itemTag);
         }
         tag.put("Items", itemsTag);
-        tag.putLong("LastRefillDay", lastRefillDay);
 
         ListTag masksTag = new ListTag();
         for (Map.Entry<UUID, Set<Integer>> entry : takenSlots.entrySet()) {
@@ -264,8 +263,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
                 container.setItem(slot, ItemStack.of(itemTag));
             }
         }
-        lastRefillDay = tag.contains("LastRefillDay") ? tag.getLong("LastRefillDay") : -1L;
-
         takenSlots.clear();
         ListTag masksTag = tag.getList("TakenMasks", Tag.TAG_COMPOUND);
         for (int i = 0; i < masksTag.size(); i++) {
@@ -284,13 +281,18 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
             return;
         }
 
-        long currentDay = Math.floorDiv(level.getDayTime(), DAY_LENGTH_TICKS);
-        boolean freshlyPlaced = entity.lastRefillDay < 0;
-        if (freshlyPlaced) {
-            entity.lastRefillDay = currentDay - 1;
-        }
-        if (currentDay != entity.lastRefillDay) {
-            entity.lastRefillDay = currentDay;
+        // Refill state is keyed by position in ContractProgress (world-level SavedData) rather
+        // than stored on this block entity, so breaking and replacing the board at the same spot
+        // can't be used to force an instant reroll - getGameTime() is used instead of
+        // getDayTime() so that /time set (which only changes getDayTime()) can't trigger one either.
+        ContractProgress progress = ContractProgress.get(serverLevel);
+        long currentDay = Math.floorDiv(level.getGameTime(), DAY_LENGTH_TICKS);
+        Long persistedDay = progress.boardLastRefillDay(pos);
+        boolean freshlyPlaced = persistedDay == null;
+        long lastRefillDay = freshlyPlaced ? currentDay - 1 : persistedDay;
+
+        if (currentDay != lastRefillDay) {
+            progress.setBoardLastRefillDay(pos, currentDay);
             entity.clearExpired(serverLevel);
             if (freshlyPlaced) {
                 entity.refillInitial(serverLevel);
