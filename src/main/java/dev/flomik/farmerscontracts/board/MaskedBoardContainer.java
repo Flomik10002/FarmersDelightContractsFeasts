@@ -35,7 +35,11 @@ public class MaskedBoardContainer implements Container {
 
     @Override
     public ItemStack getItem(int slot) {
-        return takenByViewer.contains(slot) ? ItemStack.EMPTY : real.getItem(slot);
+        // Must be a copy, not the live stack from the shared board container: vanilla click
+        // handling (e.g. the number-key hotbar swap path) can hand this straight into a player's
+        // inventory without ever going through removeItem(), which would alias the same
+        // ItemStack instance between the board and the player's inventory.
+        return takenByViewer.contains(slot) ? ItemStack.EMPTY : real.getItem(slot).copy();
     }
 
     @Override

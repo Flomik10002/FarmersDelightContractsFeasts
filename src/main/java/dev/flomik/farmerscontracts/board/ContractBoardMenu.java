@@ -6,6 +6,7 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
@@ -13,12 +14,14 @@ public class ContractBoardMenu extends AbstractContainerMenu {
 
     private final Container container;
     private final int rows;
+    private final ContainerLevelAccess access;
 
-    public ContractBoardMenu(int containerId, Inventory playerInventory, Container container, int rows) {
+    public ContractBoardMenu(int containerId, Inventory playerInventory, Container container, int rows, ContainerLevelAccess access) {
         super(FarmersContractsMod.CONTRACT_BOARD_MENU.get(), containerId);
         checkContainerSize(container, rows * 9);
         this.container = container;
         this.rows = rows;
+        this.access = access;
         container.startOpen(playerInventory.player);
 
         int topOffset = (rows - 4) * 18;
@@ -41,7 +44,7 @@ public class ContractBoardMenu extends AbstractContainerMenu {
     }
 
     public ContractBoardMenu(int containerId, Inventory playerInventory) {
-        this(containerId, playerInventory, new SimpleContainer(ContractBoardBlockEntity.SLOTS), ContractBoardBlockEntity.ROWS);
+        this(containerId, playerInventory, new SimpleContainer(ContractBoardBlockEntity.SLOTS), ContractBoardBlockEntity.ROWS, ContainerLevelAccess.NULL);
     }
 
     public int getRowCount() {
@@ -50,30 +53,46 @@ public class ContractBoardMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return container.stillValid(player);
+        // SimpleContainer/MaskedBoardContainer.stillValid() is unconditionally true - it has no
+        // notion of world position. Without this, the GUI would never auto-close even after the
+        // player walks away or the board block is broken while the menu is still open.
+        return stillValid(access, player, FarmersContractsMod.CONTRACT_BOARD.get());
     }
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        ItemStack result = ItemStack.EMPTY;
         Slot slot = this.slots.get(index);
-        if (slot != null && slot.hasItem()) {
-            ItemStack slotStack = slot.getItem();
-            result = slotStack.copy();
-            int boardSlots = rows * 9;
-            if (index < boardSlots) {
-                if (!this.moveItemStackTo(slotStack, boardSlots, this.slots.size(), true)) {
-                    return ItemStack.EMPTY;
-                }
-            } else if (!this.moveItemStackTo(slotStack, 0, boardSlots, false)) {
+        if (slot == null || !slot.hasItem()) {
+            return ItemStack.EMPTY;
+        }
+
+        int boardSlots = rows * 9;
+        ItemStack visible = slot.getItem();
+        if (visible.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        ItemStack result = visible.copy();
+
+        if (index < boardSlots) {
+            // slot.getItem() here is the live reference into the shared board container, not a
+            // per-player masked copy - moveItemStackTo mutates its argument in place, so it must
+            // never be handed the live reference directly, or a shift-click would shrink the
+            // shared contract for every viewer instead of just marking it taken for this player.
+            ItemStack moving = visible.copy();
+            if (!this.moveItemStackTo(moving, boardSlots, this.slots.size(), true)) {
                 return ItemStack.EMPTY;
             }
+            container.removeItem(index, visible.getCount() - moving.getCount());
+            return result;
+        }
 
-            if (slotStack.isEmpty()) {
-                slot.setByPlayer(ItemStack.EMPTY);
-            } else {
-                slot.setChanged();
-            }
+        if (!this.moveItemStackTo(visible, 0, boardSlots, false)) {
+            return ItemStack.EMPTY;
+        }
+        if (visible.isEmpty()) {
+            slot.setByPlayer(ItemStack.EMPTY);
+        } else {
+            slot.setChanged();
         }
         return result;
     }

@@ -22,6 +22,7 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -67,7 +68,8 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
         Set<Integer> mask = takenSlots.computeIfAbsent(player.getUUID(), id -> new HashSet<>());
         MaskedBoardContainer masked = new MaskedBoardContainer(container, mask, this::setChanged);
-        return new ContractBoardMenu(containerId, playerInventory, masked, ROWS);
+        ContainerLevelAccess access = ContainerLevelAccess.create(this.getLevel(), this.getBlockPos());
+        return new ContractBoardMenu(containerId, playerInventory, masked, ROWS, access);
     }
 
     private void clearMask(int slot) {
@@ -263,11 +265,18 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
 
         // Refill state is keyed by position in ContractProgress (world-level SavedData) rather
         // than stored on this block entity, so breaking and replacing the board at the same spot
-        // can't be used to force an instant reroll. Day tracking stays on getDayTime() (not
-        // getGameTime()) so sleeping through the night still advances it normally - sleeping
-        // only fast-forwards getDayTime(), not the real tick counter.
+        // can't be used to force an instant reroll.
+        //
+        // Day tracking is based on getGameTime() (the monotonic tick counter) rather than
+        // getDayTime(), because /time set and /time add only ever call setDayTime() - gameTime
+        // is completely unaffected by either command, so spamming them can no longer trigger a
+        // refill. Sleeping through the night legitimately skips real time without advancing
+        // gameTime by a full day, so FarmersContractsMod listens for SleepFinishedTimeEvent and
+        // banks the skipped ticks into ContractProgress's per-dimension sleepDayOffset, which is
+        // added back in here.
         ContractProgress progress = ContractProgress.get(serverLevel);
-        long currentDay = Math.floorDiv(level.getDayTime(), DAY_LENGTH_TICKS);
+        long virtualDayTime = level.getGameTime() + progress.sleepDayOffset(serverLevel.dimension());
+        long currentDay = Math.floorDiv(virtualDayTime, DAY_LENGTH_TICKS);
         Long persistedDay = progress.boardLastRefillDay(pos);
         boolean freshlyPlaced = persistedDay == null;
         long lastRefillDay = freshlyPlaced ? currentDay - 1 : persistedDay;
