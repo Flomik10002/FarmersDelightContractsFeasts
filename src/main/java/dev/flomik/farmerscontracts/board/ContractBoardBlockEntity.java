@@ -283,10 +283,11 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
 
         // Refill state is keyed by position in ContractProgress (world-level SavedData) rather
         // than stored on this block entity, so breaking and replacing the board at the same spot
-        // can't be used to force an instant reroll - getGameTime() is used instead of
-        // getDayTime() so that /time set (which only changes getDayTime()) can't trigger one either.
+        // can't be used to force an instant reroll. Day tracking stays on getDayTime() (not
+        // getGameTime()) so sleeping through the night still advances it normally - sleeping
+        // only fast-forwards getDayTime(), not the real tick counter.
         ContractProgress progress = ContractProgress.get(serverLevel);
-        long currentDay = Math.floorDiv(level.getGameTime(), DAY_LENGTH_TICKS);
+        long currentDay = Math.floorDiv(level.getDayTime(), DAY_LENGTH_TICKS);
         Long persistedDay = progress.boardLastRefillDay(pos);
         boolean freshlyPlaced = persistedDay == null;
         long lastRefillDay = freshlyPlaced ? currentDay - 1 : persistedDay;
