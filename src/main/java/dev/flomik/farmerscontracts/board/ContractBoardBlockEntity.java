@@ -1,17 +1,15 @@
 package dev.flomik.farmerscontracts.board;
 
+import dev.flomik.farmerscontracts.Config;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
 import dev.flomik.farmerscontracts.contract.ContractContent;
 import dev.flomik.farmerscontracts.contract.ContractGenerator;
-import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.Customer;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import dev.flomik.farmerscontracts.item.ContractTicketItem;
 import dev.flomik.farmerscontracts.villager.ContractVillagerMemories;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -31,32 +29,63 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 public class ContractBoardBlockEntity extends BlockEntity implements MenuProvider {
 
     public static final int ROWS = 2;
     public static final int SLOTS = ROWS * 9;
-    private static final long DAY_LENGTH_TICKS = 24000L;
-    private static final int[] DAILY_ROTATION_COUNTS = {0, 1, 1, 1, 2};
     private static final long VILLAGER_CHECK_INTERVAL_TICKS = 600L;
     private static final double VILLAGER_SEARCH_RADIUS = 24.0;
 
-    private final SimpleContainer container = new SimpleContainer(SLOTS);
-    private final Map<UUID, Set<Integer>> takenSlots = new HashMap<>();
+    // Refresh model ported 1:1 from Bountiful's BoardBlockEntity.kt (reference/Bountiful), scaled
+    // from their 21-slot board (prune at >=12 taken, extra fill at >=18 free) to our 18 slots -
+    // see docs/board-lifecycle-audit.md for the full comparison and the scaling math.
+    private static final int PRUNE_TAKEN_THRESHOLD = 10;
+    private static final int EXTRA_FILL_FREE_THRESHOLD = 15;
+    private static final int[] PRUNE_COUNT_WEIGHTS = {1, 1, 1, 1, 2, 2, 2};
+    private static final long EXPIRY_CHECK_INTERVAL_TICKS = 100L;
+
+    // Per-block state, used whenever Config.boardGlobalState() is false (the default). When true,
+    // every board on the server instead shares GlobalBoardData.get(level).state - see
+    // activeState(ServerLevel), mirroring Bountiful's own localState/GlobalBoardData split.
+    private final BoardState localState = new BoardState();
 
     public ContractBoardBlockEntity(BlockPos pos, BlockState state) {
         super(FarmersContractsMod.CONTRACT_BOARD_ENTITY.get(), pos, state);
     }
 
+    private BoardState activeState(ServerLevel level) {
+        return Config.boardGlobalState() ? GlobalBoardData.get(level).state : localState;
+    }
+
+    private void markDirty(ServerLevel level) {
+        if (Config.boardGlobalState()) {
+            GlobalBoardData.get(level).setDirty();
+        }
+        setChanged();
+    }
+
+    // Server-only accessor (menu creation, SelfTest) - falls back to local state if this block
+    // entity isn't attached to a real ServerLevel yet (e.g. a bare instance built directly in a
+    // test without being placed), since there is nothing meaningful to look up global state with.
     public SimpleContainer container() {
-        return container;
+        Level level = this.getLevel();
+        if (Config.boardGlobalState() && level instanceof ServerLevel serverLevel) {
+            return GlobalBoardData.get(serverLevel).state.container;
+        }
+        return localState.container;
+    }
+
+    // Test-only hook (SelfTest) to simulate a block entity whose chunk was unloaded for a long
+    // time, without needing to actually fast-forward the server's real gameTime. Always targets
+    // localState directly since tests construct bare entities without a real ServerLevel attached.
+    public void forceLastUpdateGameTimeForTest(long gameTime) {
+        localState.lastUpdateGameTime = gameTime;
     }
 
     @Override
@@ -66,78 +95,92 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
 
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInventory, Player player) {
-        Set<Integer> mask = takenSlots.computeIfAbsent(player.getUUID(), id -> new HashSet<>());
-        MaskedBoardContainer masked = new MaskedBoardContainer(container, mask, this::setChanged);
+        BoardState state = activeState((ServerLevel) player.level());
+        Set<Integer> mask = state.takenSlots.computeIfAbsent(player.getUUID(), id -> new HashSet<>());
+        MaskedBoardContainer masked = new MaskedBoardContainer(state.container, mask, this::setChanged);
         ContainerLevelAccess access = ContainerLevelAccess.create(this.getLevel(), this.getBlockPos());
         return new ContractBoardMenu(containerId, playerInventory, masked, ROWS, access);
     }
 
-    private void clearMask(int slot) {
-        for (Set<Integer> mask : takenSlots.values()) {
+    private void clearMask(BoardState state, int slot) {
+        for (Set<Integer> mask : state.takenSlots.values()) {
             mask.remove(slot);
         }
     }
 
-    private void clearExpired(ServerLevel level) {
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            ItemStack stack = container.getItem(i);
+    private void clearSlot(BoardState state, int slot) {
+        state.container.setItem(slot, ItemStack.EMPTY);
+        state.slotTimestamps.remove(slot);
+        clearMask(state, slot);
+    }
+
+    private void clearExpired(ServerLevel level, BoardState state) {
+        for (int i = 0; i < state.container.getContainerSize(); i++) {
+            ItemStack stack = state.container.getItem(i);
             if (stack.isEmpty()) {
                 continue;
             }
             GeneratedContract contract = ContractTicketItem.dataOf(stack);
             if (contract != null && contract.isExpired(level.getGameTime())) {
-                container.setItem(i, ItemStack.EMPTY);
-                clearMask(i);
+                clearSlot(state, i);
             }
         }
     }
 
-    private static final int INITIAL_FILL_COUNT = 3;
+    private static List<Integer> freeSlotIndices(BoardState state) {
+        List<Integer> result = new ArrayList<>();
+        for (int i = 0; i < state.container.getContainerSize(); i++) {
+            if (state.container.getItem(i).isEmpty()) {
+                result.add(i);
+            }
+        }
+        return result;
+    }
 
-    private void refillInitial(ServerLevel level) {
-        List<Integer> emptySlots = new ArrayList<>();
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            if (container.getItem(i).isEmpty()) {
-                emptySlots.add(i);
+    private static int takenSlotCount(BoardState state) {
+        int count = 0;
+        for (int i = 0; i < state.container.getContainerSize(); i++) {
+            if (!state.container.getItem(i).isEmpty()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Ported 1:1 from Bountiful's BoardBlockEntity.randomlyUpdateBoard(): prune (if overfull),
+    // then fill one free slot, then fill a second one if still very empty afterward. Thresholds
+    // scaled from their 21-slot board to our 18 (see PRUNE_TAKEN_THRESHOLD/EXTRA_FILL_FREE_THRESHOLD).
+    private void refillCycle(ServerLevel level, BoardState state) {
+        if (takenSlotCount(state) >= PRUNE_TAKEN_THRESHOLD) {
+            int pruneCount = PRUNE_COUNT_WEIGHTS[level.getRandom().nextInt(PRUNE_COUNT_WEIGHTS.length)];
+            for (int i = 0; i < pruneCount; i++) {
+                Integer slot = pickAgeWeightedEviction(level, state);
+                if (slot == null) {
+                    break;
+                }
+                clearSlot(state, slot);
             }
         }
 
-        int toFill = Math.min(INITIAL_FILL_COUNT, emptySlots.size());
-        for (int i = 0; i < toFill; i++) {
-            int pick = level.getRandom().nextInt(emptySlots.size());
-            int slot = emptySlots.remove(pick);
-            generateInto(level, slot);
+        List<Integer> free = freeSlotIndices(state);
+        if (free.size() > 1) {
+            addToRandomFreeSlot(level, state, free);
+            free = freeSlotIndices(state);
+            if (free.size() >= EXTRA_FILL_FREE_THRESHOLD) {
+                addToRandomFreeSlot(level, state, free);
+            }
         }
     }
 
-    private static final int MAX_DAILY_NEW_FILLS = 3;
-
-    private void refillForNewDay(ServerLevel level) {
-        List<Integer> emptySlots = new ArrayList<>();
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            if (container.getItem(i).isEmpty()) {
-                emptySlots.add(i);
-            }
+    private void addToRandomFreeSlot(ServerLevel level, BoardState state, List<Integer> free) {
+        if (free.isEmpty()) {
+            return;
         }
-
-        int toFill = Math.min(MAX_DAILY_NEW_FILLS, emptySlots.size());
-        for (int i = 0; i < toFill; i++) {
-            int pick = level.getRandom().nextInt(emptySlots.size());
-            int slot = emptySlots.remove(pick);
-            generateInto(level, slot);
-        }
-
-        int rotations = DAILY_ROTATION_COUNTS[level.getRandom().nextInt(DAILY_ROTATION_COUNTS.length)];
-        for (int i = 0; i < rotations; i++) {
-            Integer slot = pickWeightedEviction(level);
-            if (slot == null) {
-                break;
-            }
-            generateInto(level, slot);
-        }
+        int slot = free.get(level.getRandom().nextInt(free.size()));
+        generateInto(level, state, slot);
     }
 
-    private boolean generateInto(ServerLevel level, int slot) {
+    private boolean generateInto(ServerLevel level, BoardState state, int slot) {
         ResourceLocation customerId = pickWeightedCustomer(level.getRandom());
         if (customerId == null) {
             return false;
@@ -150,24 +193,26 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
 
         ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
         ContractTicketItem.setData(ticket, generated.get());
-        container.setItem(slot, ticket);
-        clearMask(slot);
+        state.container.setItem(slot, ticket);
+        state.slotTimestamps.put(slot, level.getGameTime());
+        clearMask(state, slot);
         return true;
     }
 
-    private Integer pickWeightedEviction(ServerLevel level) {
+    // Bountiful's weightedBountySlot(): weight = how long a slot has sat on the board (age), not
+    // how close its contract is to expiring - the older an offer, the more likely it gets
+    // rotated out to make room for something new.
+    private static Integer pickAgeWeightedEviction(ServerLevel level, BoardState state) {
         long now = level.getGameTime();
         List<Integer> slots = new ArrayList<>();
         List<Double> weights = new ArrayList<>();
         double totalWeight = 0;
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            ItemStack stack = container.getItem(i);
-            GeneratedContract contract = ContractTicketItem.dataOf(stack);
-            if (contract == null) {
+        for (int i = 0; i < state.container.getContainerSize(); i++) {
+            if (state.container.getItem(i).isEmpty()) {
                 continue;
             }
-            long remaining = Math.max(1, contract.expiresAtGameTime() - now);
-            double weight = 1.0 / remaining;
+            long placedAt = state.slotTimestamps.getOrDefault(i, now);
+            double weight = Math.max(1L, now - placedAt);
             slots.add(i);
             weights.add(weight);
             totalWeight += weight;
@@ -221,95 +266,66 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         return List.copyOf(customers.keySet()).get(customers.size() - 1);
     }
 
+    // In global mode there is nothing local worth persisting on the block entity itself - EVERY
+    // board already reflects the same shared truth server-wide regardless of the physical block.
+    // Matches Bountiful's own saveAdditional (if (!isGlobalMode) localState.saveTo(output)).
+    // load() below still always loads it unconditionally, so toggling global mode back off later
+    // doesn't lose whatever was last saved locally.
     @Override
     protected void saveAdditional(CompoundTag tag) {
         super.saveAdditional(tag);
-        ListTag itemsTag = new ListTag();
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            ItemStack stack = container.getItem(i);
-            if (stack.isEmpty()) {
-                continue;
-            }
-            CompoundTag itemTag = new CompoundTag();
-            itemTag.putInt("Slot", i);
-            stack.save(itemTag);
-            itemsTag.add(itemTag);
+        if (!Config.boardGlobalState()) {
+            localState.saveTo(tag);
         }
-        tag.put("Items", itemsTag);
-
-        ListTag masksTag = new ListTag();
-        for (Map.Entry<UUID, Set<Integer>> entry : takenSlots.entrySet()) {
-            if (entry.getValue().isEmpty()) {
-                continue;
-            }
-            CompoundTag maskTag = new CompoundTag();
-            maskTag.putUUID("Player", entry.getKey());
-            int[] slots = entry.getValue().stream().mapToInt(Integer::intValue).toArray();
-            maskTag.putIntArray("Slots", slots);
-            masksTag.add(maskTag);
-        }
-        tag.put("TakenMasks", masksTag);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
-        for (int i = 0; i < container.getContainerSize(); i++) {
-            container.setItem(i, ItemStack.EMPTY);
-        }
-        ListTag itemsTag = tag.getList("Items", Tag.TAG_COMPOUND);
-        for (int i = 0; i < itemsTag.size(); i++) {
-            CompoundTag itemTag = itemsTag.getCompound(i);
-            int slot = itemTag.getInt("Slot");
-            if (slot >= 0 && slot < container.getContainerSize()) {
-                container.setItem(slot, ItemStack.of(itemTag));
-            }
-        }
-        takenSlots.clear();
-        ListTag masksTag = tag.getList("TakenMasks", Tag.TAG_COMPOUND);
-        for (int i = 0; i < masksTag.size(); i++) {
-            CompoundTag maskTag = masksTag.getCompound(i);
-            UUID player = maskTag.getUUID("Player");
-            Set<Integer> slots = new HashSet<>();
-            for (int slot : maskTag.getIntArray("Slots")) {
-                slots.add(slot);
-            }
-            takenSlots.put(player, slots);
-        }
+        localState.loadFrom(tag);
     }
 
+    // If the board has never been used before (pristine - matches Bountiful's isPristine/
+    // upkeepTryInitialPopulation), seed it with a handful of refresh cycles right away instead of
+    // waiting a full updateFrequencySeconds for the first offer to appear.
+    private void upkeepTryInitialPopulation(ServerLevel level, BoardState state) {
+        if (state.initialized) {
+            return;
+        }
+        for (int i = 0; i < 5; i++) {
+            refillCycle(level, state);
+        }
+        state.initialized = true;
+        state.lastUpdateGameTime = level.getGameTime();
+        markDirty(level);
+    }
+
+    // Refresh cadence ported 1:1 from Bountiful's BoardBlockEntity.upkeepBountyGeneration(): real
+    // seconds elapsed (via getGameTime(), immune to /time set/add, which only ever touch
+    // getDayTime()), with catch-up if the block entity's chunk was unloaded for a while, capped at
+    // SLOTS so a very long absence can't dump dozens of refill cycles on the board at once.
     public static void tick(Level level, BlockPos pos, BlockState state, ContractBoardBlockEntity entity) {
         if (level.isClientSide || !(level instanceof ServerLevel serverLevel)) {
             return;
         }
 
-        // Refill state is keyed by position in ContractProgress (world-level SavedData) rather
-        // than stored on this block entity, so breaking and replacing the board at the same spot
-        // can't be used to force an instant reroll.
-        //
-        // Day tracking is based on getGameTime() (the monotonic tick counter) rather than
-        // getDayTime(), because /time set and /time add only ever call setDayTime() - gameTime
-        // is completely unaffected by either command, so spamming them can no longer trigger a
-        // refill. Sleeping through the night legitimately skips real time without advancing
-        // gameTime by a full day, so FarmersContractsMod listens for SleepFinishedTimeEvent and
-        // banks the skipped ticks into ContractProgress's per-dimension sleepDayOffset, which is
-        // added back in here.
-        ContractProgress progress = ContractProgress.get(serverLevel);
-        long virtualDayTime = level.getGameTime() + progress.sleepDayOffset(serverLevel.dimension());
-        long currentDay = Math.floorDiv(virtualDayTime, DAY_LENGTH_TICKS);
-        Long persistedDay = progress.boardLastRefillDay(pos);
-        boolean freshlyPlaced = persistedDay == null;
-        long lastRefillDay = freshlyPlaced ? currentDay - 1 : persistedDay;
+        BoardState activeState = entity.activeState(serverLevel);
 
-        if (currentDay != lastRefillDay) {
-            progress.setBoardLastRefillDay(pos, currentDay);
-            entity.clearExpired(serverLevel);
-            if (freshlyPlaced) {
-                entity.refillInitial(serverLevel);
-            } else {
-                entity.refillForNewDay(serverLevel);
+        entity.upkeepTryInitialPopulation(serverLevel, activeState);
+
+        long updateFrequencyTicks = Config.boardUpdateFrequencySeconds() * 20L;
+        long elapsed = serverLevel.getGameTime() - activeState.lastUpdateGameTime;
+        if (updateFrequencyTicks > 0 && elapsed >= updateFrequencyTicks) {
+            long numUpdates = Math.min(elapsed / updateFrequencyTicks, SLOTS);
+            activeState.lastUpdateGameTime = serverLevel.getGameTime();
+            for (long i = 0; i < numUpdates; i++) {
+                entity.refillCycle(serverLevel, activeState);
             }
-            entity.setChanged();
+            entity.markDirty(serverLevel);
+        }
+
+        if (level.getGameTime() % EXPIRY_CHECK_INTERVAL_TICKS == 0) {
+            entity.clearExpired(serverLevel, activeState);
         }
 
         if (level.getGameTime() % VILLAGER_CHECK_INTERVAL_TICKS == 0) {

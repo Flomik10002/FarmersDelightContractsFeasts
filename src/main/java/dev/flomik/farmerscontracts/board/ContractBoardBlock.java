@@ -1,11 +1,14 @@
 package dev.flomik.farmerscontracts.board;
 
+import dev.flomik.farmerscontracts.Config;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
+import dev.flomik.farmerscontracts.box.ContractBoxBlockEntity;
 import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import dev.flomik.farmerscontracts.contract.GeneratedLine;
 import dev.flomik.farmerscontracts.item.ContractTicketItem;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerLevel;
@@ -17,6 +20,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
@@ -25,6 +29,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.loot.LootParams;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.ArrayList;
@@ -32,8 +38,21 @@ import java.util.List;
 
 public class ContractBoardBlock extends BaseEntityBlock {
 
+    // Explosion resistance matches Bountiful's board exactly (BoardBlock.kt:
+    // destroyTime(3f).explosionResistance(3600000f), the same figure vanilla uses for bedrock/
+    // portal frames) - the board survives TNT/creepers even though it can still be mined normally.
     public ContractBoardBlock(Properties properties) {
-        super(properties.sound(SoundType.WOOD).strength(2.5F));
+        super(properties.sound(SoundType.WOOD).strength(2.5F, 3_600_000F));
+    }
+
+    // Refuse to even start breaking the block if the config disallows it - ported from
+    // Bountiful's BoardBlock.getDestroyProgress (config board.canBreak).
+    @Override
+    public float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
+        if (!Config.boardCanBreak()) {
+            return 0.0F;
+        }
+        return super.getDestroyProgress(state, player, level, pos);
     }
 
     @Override
@@ -59,6 +78,26 @@ public class ContractBoardBlock extends BaseEntityBlock {
         return entity instanceof MenuProvider provider ? provider : null;
     }
 
+    // Carries the block entity's ENTIRE saveAdditional NBT onto the dropped item (items,
+    // lastUpdateGameTime, initialized, slotTimestamps, masks) so break+replace at the same
+    // position is a no-op - both for the container contents AND the Bountiful-ported refresh
+    // timer (which would otherwise reset to 0 and look like an instant-reroll exploit).
+    // BlockItem.updateCustomBlockEntityTag restores it automatically on the next placement - the
+    // pre-components equivalent of the loot_table copy_components function used on the NeoForge
+    // 1.21.1 side (see ContractBoxBlock's own getDrops override for the same pattern).
+    @Override
+    public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
+        if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof ContractBoardBlockEntity board) {
+            ItemStack stack = new ItemStack(FarmersContractsMod.CONTRACT_BOARD_ITEM.get());
+            CompoundTag tag = board.saveWithoutMetadata();
+            if (!tag.isEmpty()) {
+                stack.addTagElement("BlockEntityTag", tag);
+            }
+            return List.of(stack);
+        }
+        return super.getDrops(state, params);
+    }
+
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (player.isShiftKeyDown()) {
@@ -66,13 +105,20 @@ public class ContractBoardBlock extends BaseEntityBlock {
         }
 
         ItemStack stack = player.getItemInHand(hand);
-        if (stack.getItem() instanceof ContractTicketItem) {
+        boolean isTicket = stack.getItem() instanceof ContractTicketItem;
+        boolean isSealedBox = !isTicket
+                && stack.is(FarmersContractsMod.CONTRACT_BOX_ITEM.get())
+                && ContractBoxBlockEntity.sealedContractOf(stack) != null;
+
+        if ((isTicket && Config.deliveryMode() != Config.DeliveryMode.BOX_ONLY)
+                || (isSealedBox && Config.deliveryMode() != Config.DeliveryMode.TICKET_ONLY)) {
             if (level.isClientSide) {
                 return InteractionResult.SUCCESS;
             }
-            return tryTurnIn((ServerLevel) level, (ServerPlayer) player, stack)
-                    ? InteractionResult.CONSUME
-                    : InteractionResult.FAIL;
+            boolean turnedIn = isTicket
+                    ? tryTurnIn((ServerLevel) level, (ServerPlayer) player, stack)
+                    : tryDeliverBox((ServerLevel) level, (ServerPlayer) player, stack);
+            return turnedIn ? InteractionResult.CONSUME : InteractionResult.FAIL;
         }
 
         if (level.isClientSide) {
@@ -131,6 +177,33 @@ public class ContractBoardBlock extends BaseEntityBlock {
         player.giveExperiencePoints(contract.xp());
 
         ticket.shrink(1);
+        ContractProgress.get(level).incrementCompleted();
+        player.sendSystemMessage(Component.translatable("chat.farmerscontracts.fulfilled", ContractTicketItem.customerName(contract)));
+        return true;
+    }
+
+    // Package-private (not private) so SelfTest can exercise it directly. Delivering a sealed
+    // Contract Box (see dev.flomik.farmerscontracts.box) needs no inventory check here - the box
+    // already validated and consumed its contents when it was sealed (ContractBoxBlock.trySeal);
+    // carrying its sealed contract data to the board is proof enough.
+    boolean tryDeliverBox(ServerLevel level, ServerPlayer player, ItemStack box) {
+        GeneratedContract contract = ContractBoxBlockEntity.sealedContractOf(box);
+        if (contract == null) {
+            return false;
+        }
+
+        if (contract.isExpired(level.getGameTime())) {
+            box.shrink(1);
+            player.sendSystemMessage(Component.translatable("chat.farmerscontracts.expired", ContractTicketItem.customerName(contract)));
+            return true;
+        }
+
+        for (GeneratedLine reward : contract.rewards()) {
+            giveOrDrop(level, player, reward.stack().copyWithCount(reward.amount()));
+        }
+        player.giveExperiencePoints(contract.xp());
+
+        box.shrink(1);
         ContractProgress.get(level).incrementCompleted();
         player.sendSystemMessage(Component.translatable("chat.farmerscontracts.fulfilled", ContractTicketItem.customerName(contract)));
         return true;

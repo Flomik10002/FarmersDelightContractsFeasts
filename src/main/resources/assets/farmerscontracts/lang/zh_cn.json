@@ -1,8 +1,10 @@
 {
   "itemGroup.farmerscontracts": "农夫契约",
   "block.farmerscontracts.contract_board": "契约布告板",
+  "block.farmerscontracts.contract_box": "契约箱",
   "item.farmerscontracts.contract_ticket": "契约",
   "item.farmerscontracts.contract_ticket.named": "%s契约",
+  "item.farmerscontracts.contract_box.named": "契约箱: %s",
 
   "customer.farmerscontracts.village_bakery": "村庄面包房",
   "customer.farmerscontracts.local_tavern": "本地酒馆",
@@ -24,5 +26,8 @@
   "chat.farmerscontracts.expired": "%s契约已过期。",
   "chat.farmerscontracts.still_needed": "仍需要: %s",
   "chat.farmerscontracts.fulfilled": "%s契约已完成！",
-  "chat.farmerscontracts.line_amount": "%s x %s"
+  "chat.farmerscontracts.line_amount": "%s x %s",
+  "chat.farmerscontracts.box_sealed": "契约箱已为%s契约封装。请将它送到契约布告板。",
+  "chat.farmerscontracts.box_locked": "这个契约箱已经封装，无法再打开。",
+  "chat.farmerscontracts.box_mismatch": "箱子里必须正好是: %s"
 }

@@ -8,7 +8,7 @@
     "VillagerIdleMixin",
     "VillagerMemoryAccessor",
     "VillagerBrainProviderMixin",
-    "VillageBoardMixin"
+    "VillageBoardLimitMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -1,7 +1,0 @@
-{
-  "processors": [
-    {
-      "processor_type": "farmerscontracts:wood_by_biome"
-    }
-  ]
-}

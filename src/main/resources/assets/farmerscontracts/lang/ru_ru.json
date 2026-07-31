@@ -1,8 +1,10 @@
 {
   "itemGroup.farmerscontracts": "Контракты фермера",
   "block.farmerscontracts.contract_board": "Доска контрактов",
+  "block.farmerscontracts.contract_box": "Коробка для заказа",
   "item.farmerscontracts.contract_ticket": "Контракт",
   "item.farmerscontracts.contract_ticket.named": "Контракт: %s",
+  "item.farmerscontracts.contract_box.named": "Коробка для заказа: %s",
 
   "customer.farmerscontracts.village_bakery": "Деревенская пекарня",
   "customer.farmerscontracts.local_tavern": "Местная таверна",
@@ -24,5 +26,8 @@
   "chat.farmerscontracts.expired": "Контракт \"%s\" просрочен.",
   "chat.farmerscontracts.still_needed": "Всё ещё нужно: %s",
   "chat.farmerscontracts.fulfilled": "Контракт \"%s\" выполнен!",
-  "chat.farmerscontracts.line_amount": "%s x %s"
+  "chat.farmerscontracts.line_amount": "%s x %s",
+  "chat.farmerscontracts.box_sealed": "Коробка запечатана под контракт \"%s\". Отнесите её к доске контрактов.",
+  "chat.farmerscontracts.box_locked": "Эта коробка запечатана, её больше нельзя открыть.",
+  "chat.farmerscontracts.box_mismatch": "В коробке должно быть ровно: %s"
 }

@@ -1,0 +1,6 @@
+{
+  "parent": "farmerscontracts:block/contract_box_empty",
+  "overrides": [
+    { "predicate": { "farmerscontracts:sealed": 1 }, "model": "farmerscontracts:block/contract_box" }
+  ]
+}

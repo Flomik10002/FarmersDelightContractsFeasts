@@ -5,21 +5,27 @@ import dev.flomik.farmerscontracts.board.ContractBoardBlock;
 import dev.flomik.farmerscontracts.board.ContractBoardBlockEntity;
 import dev.flomik.farmerscontracts.board.ContractBoardMenu;
 import dev.flomik.farmerscontracts.board.SelfTest;
+import dev.flomik.farmerscontracts.box.ContractBoxBlock;
+import dev.flomik.farmerscontracts.box.ContractBoxBlockEntity;
+import dev.flomik.farmerscontracts.box.ContractBoxMenu;
+import dev.flomik.farmerscontracts.client.ClientSetup;
 import dev.flomik.farmerscontracts.client.ContractBoardScreen;
+import dev.flomik.farmerscontracts.client.ContractBoxScreen;
+import dev.flomik.farmerscontracts.condition.BoardCraftableCondition;
+import dev.flomik.farmerscontracts.condition.BoxEnabledCondition;
 import dev.flomik.farmerscontracts.contract.BalanceCheck;
 import dev.flomik.farmerscontracts.contract.ContractDataReloadListener;
 import dev.flomik.farmerscontracts.contract.ContractDebugCommand;
-import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import dev.flomik.farmerscontracts.contract.GeneratedLine;
+import dev.flomik.farmerscontracts.item.ContractBoxItem;
 import dev.flomik.farmerscontracts.item.ContractTicketItem;
 import dev.flomik.farmerscontracts.villager.ContractVillagerMemories;
-import dev.flomik.farmerscontracts.worldgen.WorldgenRegistry;
+import dev.flomik.farmerscontracts.worldgen.VillagePoolInjector;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -30,11 +36,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.crafting.CraftingHelper;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.player.ItemTooltipEvent;
-import net.minecraftforge.event.level.SleepFinishedTimeEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -78,13 +84,32 @@ public class FarmersContractsMod {
             MENU_TYPES.register("contract_board", () -> IForgeMenuType.create(
                     (windowId, inv, data) -> new ContractBoardMenu(windowId, inv)));
 
+    public static final RegistryObject<ContractBoxBlock> CONTRACT_BOX = BLOCKS.register(
+            "contract_box", () -> new ContractBoxBlock(BlockBehaviour.Properties.of()));
+    public static final RegistryObject<ContractBoxItem> CONTRACT_BOX_ITEM = ITEMS.register(
+            "contract_box", () -> new ContractBoxItem(CONTRACT_BOX.get(), new Item.Properties()));
+    public static final RegistryObject<BlockEntityType<ContractBoxBlockEntity>> CONTRACT_BOX_ENTITY =
+            BLOCK_ENTITY_TYPES.register("contract_box", () -> BlockEntityType.Builder.of(
+                    ContractBoxBlockEntity::new, CONTRACT_BOX.get()).build(null));
+    public static final RegistryObject<MenuType<ContractBoxMenu>> CONTRACT_BOX_MENU =
+            MENU_TYPES.register("contract_box", () -> IForgeMenuType.create(
+                    (windowId, inv, data) -> new ContractBoxMenu(windowId, inv)));
+
     public static final RegistryObject<CreativeModeTab> CONTRACTS_TAB =
             CREATIVE_MODE_TABS.register("contracts_tab", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.farmerscontracts"))
                     .icon(() -> CONTRACT_BOARD_ITEM.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
-                        output.accept(CONTRACT_BOARD_ITEM.get());
+                        // Unbreakable boards (Config.boardCanBreak() == false, ported from
+                        // Bountiful's board.canBreak) must not be craftable either - see the
+                        // recipe's own "forge:conditions" gate and BoardCraftableCondition.
+                        if (Config.boardCanBreak()) {
+                            output.accept(CONTRACT_BOARD_ITEM.get());
+                        }
                         output.accept(CONTRACT_TICKET.get());
+                        if (Config.deliveryMode() != Config.DeliveryMode.TICKET_ONLY) {
+                            output.accept(CONTRACT_BOX_ITEM.get());
+                        }
                     })
                     .build());
 
@@ -97,7 +122,8 @@ public class FarmersContractsMod {
         BLOCK_ENTITY_TYPES.register(modEventBus);
         MENU_TYPES.register(modEventBus);
         ContractVillagerMemories.MEMORY_MODULE_TYPES.register(modEventBus);
-        WorldgenRegistry.STRUCTURE_PROCESSOR_TYPES.register(modEventBus);
+        CraftingHelper.register(BoxEnabledCondition.Serializer.INSTANCE);
+        CraftingHelper.register(BoardCraftableCondition.Serializer.INSTANCE);
 
         modEventBus.addListener(this::onClientSetup);
 
@@ -105,13 +131,20 @@ public class FarmersContractsMod {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
+    // The ItemProperties registration lives in ClientSetup, not inline here - see that class for why.
     private void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() -> MenuScreens.register(CONTRACT_BOARD_MENU.get(), ContractBoardScreen::new));
+        event.enqueueWork(() -> {
+            MenuScreens.register(CONTRACT_BOARD_MENU.get(), ContractBoardScreen::new);
+            MenuScreens.register(CONTRACT_BOX_MENU.get(), ContractBoxScreen::new);
+            ClientSetup.registerItemProperties();
+        });
     }
 
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("Farmer's Contracts server starting");
+
+        VillagePoolInjector.injectAll(event.getServer().registryAccess());
 
         if (BalanceCheck.isRequested()) {
             BalanceCheck.run();
@@ -141,31 +174,33 @@ public class FarmersContractsMod {
     }
 
     @SubscribeEvent
-    public void onSleepFinished(SleepFinishedTimeEvent event) {
-        if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
-            return;
-        }
-        // Fired before the skip is applied, so getDayTime() here is still the pre-skip value -
-        // the delta is exactly how many ticks vanilla is about to fast-forward through.
-        long ticksSkipped = event.getNewTime() - serverLevel.getDayTime();
-        ContractProgress.get(serverLevel).addSleepDayOffset(serverLevel.dimension(), ticksSkipped);
-    }
-
-    @SubscribeEvent
     public void onItemTooltip(ItemTooltipEvent event) {
-        if (!(event.getItemStack().getItem() instanceof ContractTicketItem)) {
+        ItemStack stack = event.getItemStack();
+        boolean isTicket = stack.getItem() instanceof ContractTicketItem;
+        // A sealed box's contents are guaranteed to exactly match the order (see
+        // ContractBoxBlock.trySeal) - its tooltip is the ticket's tooltip with every line already
+        // shown as fulfilled (N/N), not recomputed from anything.
+        boolean isSealedBox = !isTicket && stack.is(CONTRACT_BOX_ITEM.get());
+        if (!isTicket && !isSealedBox) {
             return;
         }
-        GeneratedContract data = ContractTicketItem.dataOf(event.getItemStack());
+
+        GeneratedContract data = isTicket
+                ? ContractTicketItem.dataOf(stack)
+                : ContractBoxBlockEntity.sealedContractOf(stack);
         if (data == null) {
             return;
         }
-        Player player = event.getEntity();
-        List<Component> tooltip = event.getToolTip();
 
+        appendContractTooltip(data, event.getEntity(), event.getToolTip(), isSealedBox);
+    }
+
+    private static void appendContractTooltip(GeneratedContract data, Player player, List<Component> tooltip, boolean alwaysFulfilled) {
         tooltip.add(Component.translatable("tooltip.farmerscontracts.needs").withStyle(ChatFormatting.WHITE));
         for (GeneratedLine line : GeneratedLine.mergeByItem(data.objectives())) {
-            int have = player == null ? 0 : Math.min(countMatching(player, line.stack().getItem()), line.amount());
+            int have = alwaysFulfilled
+                    ? line.amount()
+                    : (player == null ? 0 : Math.min(countMatching(player, line.stack().getItem()), line.amount()));
             tooltip.add(Component.translatable("tooltip.farmerscontracts.objective_line",
                             have, line.amount(), line.stack().getHoverName())
                     .withStyle(ChatFormatting.GRAY));
