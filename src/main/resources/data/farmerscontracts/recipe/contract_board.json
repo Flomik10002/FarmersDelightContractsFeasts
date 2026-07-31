@@ -1,4 +1,7 @@
 {
+  "neoforge:conditions": [
+    { "type": "farmerscontracts:board_craftable" }
+  ],
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {
@@ -7,11 +10,14 @@
     },
     "A": {
       "item": "minecraft:paper"
+    },
+    "D": {
+      "item": "minecraft:diamond"
     }
   },
   "pattern": [
     "PPP",
-    "PAP",
+    "ADA",
     "PPP"
   ],
   "result": {

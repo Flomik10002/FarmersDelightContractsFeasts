@@ -1,8 +1,10 @@
 {
   "itemGroup.farmerscontracts": "Farmer's Contracts",
   "block.farmerscontracts.contract_board": "Contract Board",
+  "block.farmerscontracts.contract_box": "Contract Box",
   "item.farmerscontracts.contract_ticket": "Contract",
   "item.farmerscontracts.contract_ticket.named": "%s Contract",
+  "item.farmerscontracts.contract_box.named": "Contract Box: %s",
 
   "customer.farmerscontracts.village_bakery": "Village Bakery",
   "customer.farmerscontracts.local_tavern": "Local Tavern",
@@ -24,5 +26,8 @@
   "chat.farmerscontracts.expired": "%s contract has expired.",
   "chat.farmerscontracts.still_needed": "Still needed: %s",
   "chat.farmerscontracts.fulfilled": "%s contract fulfilled!",
-  "chat.farmerscontracts.line_amount": "%sx %s"
+  "chat.farmerscontracts.line_amount": "%sx %s",
+  "chat.farmerscontracts.box_sealed": "Box sealed for the %s contract. Deliver it to a Contract Board.",
+  "chat.farmerscontracts.box_locked": "This box is sealed and can't be opened anymore.",
+  "chat.farmerscontracts.box_mismatch": "Box must contain exactly: %s"
 }

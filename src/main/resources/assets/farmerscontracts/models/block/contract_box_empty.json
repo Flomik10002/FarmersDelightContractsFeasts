@@ -1,0 +1,69 @@
+{
+	"format_version": "1.21.6",
+	"credit": "Made with Blockbench",
+	"texture_size": [64, 64],
+	"textures": {
+		"6": "farmerscontracts:block/contract_box",
+		"particle": "farmerscontracts:block/contract_box"
+	},
+	"elements": [
+		{
+			"from": [4, 0, 4],
+			"to": [12, 7, 12],
+			"rotation": {"angle": 0, "axis": "y", "origin": [7, 0, 7]},
+			"faces": {
+				"north": {"uv": [2.25, 4, 4.25, 5.75], "texture": "#6"},
+				"east": {"uv": [4.25, 0, 6.25, 1.75], "texture": "#6"},
+				"south": {"uv": [4.25, 1.75, 6.25, 3.5], "texture": "#6"},
+				"west": {"uv": [4.25, 3.5, 6.25, 5.25], "texture": "#6"},
+				"up": {"uv": [4.25, 2, 2.25, 0], "texture": "#6"},
+				"down": {"uv": [4.25, 2, 2.25, 4], "texture": "#6"}
+			}
+		}
+	],
+	"display": {
+		"thirdperson_righthand": {
+			"rotation": [75, 45, 0],
+			"translation": [0, 0.5, 1],
+			"scale": [0.65, 0.65, 0.65]
+		},
+		"thirdperson_lefthand": {
+			"rotation": [75, 45, 0],
+			"translation": [0, 0.5, 1],
+			"scale": [0.65, 0.65, 0.65]
+		},
+		"firstperson_righthand": {
+			"rotation": [0, 71, 0],
+			"translation": [-0.25, 2.25, -0.5],
+			"scale": [0.54, 0.54, 0.54]
+		},
+		"firstperson_lefthand": {
+			"rotation": [0, 71, 0],
+			"translation": [-0.25, 2.25, -0.5],
+			"scale": [0.54, 0.54, 0.54]
+		},
+		"ground": {
+			"translation": [0, 1.75, 0],
+			"scale": [0.6, 0.6, 0.6]
+		},
+		"gui": {
+			"rotation": [30, -135, 0],
+			"translation": [0.25, 2.5, 0],
+			"scale": [0.9, 0.9, 0.9]
+		},
+		"head": {
+			"translation": [0, 14.5, 0]
+		},
+		"fixed": {
+			"translation": [0, 2.75, 0]
+		}
+	},
+	"groups": [
+		{
+			"name": "present",
+			"origin": [0, 0, 0],
+			"color": 0,
+			"children": [0]
+		}
+	]
+}

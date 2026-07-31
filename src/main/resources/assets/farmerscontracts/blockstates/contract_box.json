@@ -1,0 +1,12 @@
+{
+  "variants": {
+    "facing=north,sealed=false": { "model": "farmerscontracts:block/contract_box_empty" },
+    "facing=east,sealed=false": { "model": "farmerscontracts:block/contract_box_empty", "y": 90 },
+    "facing=south,sealed=false": { "model": "farmerscontracts:block/contract_box_empty", "y": 180 },
+    "facing=west,sealed=false": { "model": "farmerscontracts:block/contract_box_empty", "y": 270 },
+    "facing=north,sealed=true": { "model": "farmerscontracts:block/contract_box" },
+    "facing=east,sealed=true": { "model": "farmerscontracts:block/contract_box", "y": 90 },
+    "facing=south,sealed=true": { "model": "farmerscontracts:block/contract_box", "y": 180 },
+    "facing=west,sealed=true": { "model": "farmerscontracts:block/contract_box", "y": 270 }
+  }
+}

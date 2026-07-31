@@ -6,14 +6,14 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "farmerscontracts:contract_board",
+          "name": "farmerscontracts:contract_box",
           "functions": [
             {
               "function": "minecraft:copy_components",
               "source": "block_entity",
               "include": [
                 "minecraft:container",
-                "farmerscontracts:board_state"
+                "farmerscontracts:contract_data"
               ]
             }
           ]
