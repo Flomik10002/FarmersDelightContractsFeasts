@@ -3,12 +3,7 @@
   "minVersion": "0.8",
   "package": "dev.flomik.farmerscontracts.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [
-    "VillagerIdleMixin",
-    "VillagerMemoryAccessor",
-    "VillagerBrainProviderMixin",
-    "VillageBoardLimitMixin"
-  ],
+  "mixins": [],
   "injectors": {
     "defaultRequire": 1
   }
