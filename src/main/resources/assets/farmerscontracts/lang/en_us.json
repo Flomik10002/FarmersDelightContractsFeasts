@@ -29,5 +29,7 @@
   "chat.farmerscontracts.line_amount": "%sx %s",
   "chat.farmerscontracts.box_sealed": "Box sealed for the %s contract. Deliver it to a Contract Board.",
   "chat.farmerscontracts.box_locked": "This box is sealed and can't be opened anymore.",
-  "chat.farmerscontracts.box_mismatch": "Box must contain exactly: %s"
+  "chat.farmerscontracts.box_mismatch": "Box must contain exactly: %s",
+
+  "scoreboard.farmerscontracts.contract_points": "Contract Points"
 }

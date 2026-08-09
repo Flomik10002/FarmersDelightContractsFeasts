@@ -3,6 +3,8 @@ package dev.flomik.farmerscontracts.board;
 import com.mojang.logging.LogUtils;
 import dev.flomik.farmerscontracts.Config;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
+import dev.flomik.farmerscontracts.api.ContractScoreboard;
+import dev.flomik.farmerscontracts.api.event.ContractFulfilledEvent;
 import dev.flomik.farmerscontracts.box.ContractBoxBlock;
 import dev.flomik.farmerscontracts.box.ContractBoxBlockEntity;
 import dev.flomik.farmerscontracts.box.ContractBoxMenu;
@@ -30,6 +32,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.core.Direction;
+import net.minecraft.world.scores.Objective;
+import net.minecraft.world.scores.Score;
+import net.minecraft.world.scores.Scoreboard;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
 import org.slf4j.Logger;
@@ -37,6 +44,7 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Headless, server-only regression checks for the board GUI/turn-in bugs fixed in this session.
@@ -89,6 +97,9 @@ public final class SelfTest {
         test.testBoardDeliversSealedBoxAndGrantsReward(overworld);
         test.testBoardDeliverExpiredBoxVoidsWithoutReward(overworld);
         test.testDeliveryModeGatesTurnInPaths(overworld);
+        test.testContractRarityTierPointsMapping();
+        test.testTicketTurnInAwardsProgressScoreboardAndEvent(overworld);
+        test.testBoxDeliveryAwardsProgressScoreboardAndEvent(overworld);
 
         LOGGER.info("=== SelfTest: {}/{} checks passed ===", test.checks - test.failures.size(), test.checks);
         if (test.failures.isEmpty()) {
@@ -672,6 +683,130 @@ public final class SelfTest {
         overworld.setBlockAndUpdate(BOX_GATING_BOX_POS, FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState());
         check(!overworld.getBlockState(BOX_GATING_BOX_POS).getValue(ContractBoxBlock.SEALED),
                 "A freshly placed, empty Contract Box must not start sealed");
+    }
+
+    // --- Mod-integration hooks: the rarity -> tier-points mapping itself, independent of any
+    // completion flow (Common=1, Uncommon=2, Rare=3, Special=4 - see docs/mod.md, arfxyz's
+    // leveling-mod integration request) ---
+    private void testContractRarityTierPointsMapping() {
+        check(ContractRarity.COMMON.tierPoints() == 1, "COMMON contracts must award 1 tier point");
+        check(ContractRarity.UNCOMMON.tierPoints() == 2, "UNCOMMON contracts must award 2 tier points");
+        check(ContractRarity.RARE.tierPoints() == 3, "RARE contracts must award 3 tier points");
+        check(ContractRarity.SPECIAL.tierPoints() == 4, "SPECIAL contracts must award 4 tier points");
+    }
+
+    // --- Mod-integration hooks: a completed contract must increment ContractProgress, award
+    // fc_points scoreboard points scaled by rarity tier, and fire ContractFulfilledEvent exactly
+    // once - checked on both completion paths (ticket turn-in and sealed-box delivery)
+    // separately, since ContractBoardBlock.finalizeCompletion() is the one place both are
+    // supposed to funnel through and a regression in either caller wouldn't otherwise show. ---
+    private void testTicketTurnInAwardsProgressScoreboardAndEvent(ServerLevel overworld) {
+        FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
+        player.getInventory().clearContent();
+
+        GeneratedContract contract = testContract(
+                List.of(new GeneratedLine(new ItemStack(Items.WHEAT), 1, 1.0)),
+                overworld.getGameTime() + 1_000_000L);
+        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ContractTicketItem.setData(ticket, contract);
+        player.getInventory().add(new ItemStack(Items.WHEAT, 1));
+
+        CompletionSideEffects before = CompletionSideEffects.capture(overworld, player);
+        List<ContractFulfilledEvent> fired = new ArrayList<>();
+        Consumer<ContractFulfilledEvent> listener = fired::add;
+        // Old Forge's single-arg addListener(Consumer<T>) resolves T via ASM/reflection on the
+        // consumer's generated class, which fails for a method reference into a generic
+        // collection method (List.add erases to accept(Object)) - the 4-arg overload sidesteps
+        // that entirely by naming the event class explicitly.
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, ContractFulfilledEvent.class, listener);
+
+        boolean result;
+        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
+        try {
+            result = block.tryTurnIn(overworld, player, ticket);
+        } finally {
+            MinecraftForge.EVENT_BUS.unregister(listener);
+        }
+
+        checkCompletionSideEffects(overworld, player, contract, result, before, fired, "Ticket turn-in");
+    }
+
+    private void testBoxDeliveryAwardsProgressScoreboardAndEvent(ServerLevel overworld) {
+        FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
+        player.getInventory().clearContent();
+
+        GeneratedContract contract = testContract(
+                List.of(new GeneratedLine(new ItemStack(Items.WHEAT), 1, 1.0)),
+                overworld.getGameTime() + 1_000_000L);
+        ItemStack sealedBox = sealedBoxStack(contract);
+
+        CompletionSideEffects before = CompletionSideEffects.capture(overworld, player);
+        List<ContractFulfilledEvent> fired = new ArrayList<>();
+        Consumer<ContractFulfilledEvent> listener = fired::add;
+        // Old Forge's single-arg addListener(Consumer<T>) resolves T via ASM/reflection on the
+        // consumer's generated class, which fails for a method reference into a generic
+        // collection method (List.add erases to accept(Object)) - the 4-arg overload sidesteps
+        // that entirely by naming the event class explicitly.
+        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, ContractFulfilledEvent.class, listener);
+
+        boolean result;
+        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
+        try {
+            result = block.tryDeliverBox(overworld, player, sealedBox);
+        } finally {
+            MinecraftForge.EVENT_BUS.unregister(listener);
+        }
+
+        checkCompletionSideEffects(overworld, player, contract, result, before, fired, "Box delivery");
+    }
+
+    private record CompletionSideEffects(long completedContracts, int score) {
+        static CompletionSideEffects capture(ServerLevel overworld, FakePlayer player) {
+            Objective objective = overworld.getServer().getScoreboard().getObjective(ContractScoreboard.OBJECTIVE_NAME);
+            int score = objective == null ? 0 : overworld.getServer().getScoreboard().getOrCreatePlayerScore(player.getScoreboardName(), objective).getScore();
+            return new CompletionSideEffects(ContractProgress.get(overworld).completedContracts(), score);
+        }
+    }
+
+    private void checkCompletionSideEffects(
+            ServerLevel overworld,
+            FakePlayer player,
+            GeneratedContract contract,
+            boolean result,
+            CompletionSideEffects before,
+            List<ContractFulfilledEvent> fired,
+            String pathLabel
+    ) {
+        check(result, pathLabel + ": completion must succeed (test setup sanity check)");
+
+        check(ContractProgress.get(overworld).completedContracts() == before.completedContracts() + 1,
+                pathLabel + ": completion must increment ContractProgress by exactly 1");
+
+        Scoreboard scoreboard = overworld.getServer().getScoreboard();
+        Objective objectiveAfter = scoreboard.getObjective(ContractScoreboard.OBJECTIVE_NAME);
+        check(objectiveAfter != null, pathLabel + ": completion must create the fc_points scoreboard objective if it doesn't already exist");
+        if (objectiveAfter != null) {
+            Score scoreAfter = scoreboard.getOrCreatePlayerScore(player.getScoreboardName(), objectiveAfter);
+            check(scoreAfter.getScore() == before.score() + ContractRarity.COMMON.tierPoints(),
+                    pathLabel + ": a completed COMMON contract must award exactly " + ContractRarity.COMMON.tierPoints()
+                            + " fc_points (before=" + before.score() + ", after=" + scoreAfter.getScore() + ")");
+        }
+
+        check(fired.size() == 1, pathLabel + ": completion must fire ContractFulfilledEvent exactly once (fired " + fired.size() + " times)");
+        if (fired.size() == 1) {
+            ContractFulfilledEvent event = fired.get(0);
+            check(event.player() == player, pathLabel + ": ContractFulfilledEvent must carry the completing player");
+            // Not a whole-record .equals(): contract data round-trips through NBT on this branch
+            // (ContractTicketItem.setData/dataOf, ContractBoxBlockEntity.sealedContractOf), so the
+            // event's contract is a freshly-deserialized copy with its own ItemStack instances -
+            // ItemStack doesn't override equals(), so GeneratedContract's generated equals() would
+            // never match here even for identical data (same pattern as sealedContract() checks
+            // elsewhere in this file).
+            check(event.contract().customerId().equals(contract.customerId()),
+                    pathLabel + ": ContractFulfilledEvent must carry the completed contract");
+            check(event.rarity() == ContractRarity.COMMON, pathLabel + ": ContractFulfilledEvent must report the contract's rarity");
+            check(event.tierPoints() == ContractRarity.COMMON.tierPoints(), pathLabel + ": ContractFulfilledEvent must report the rarity's tier points");
+        }
     }
 
     private static GeneratedContract testContract(List<GeneratedLine> objectives, long expiresAtGameTime) {

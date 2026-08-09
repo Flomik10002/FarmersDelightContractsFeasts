@@ -29,5 +29,7 @@
   "chat.farmerscontracts.line_amount": "%s x %s",
   "chat.farmerscontracts.box_sealed": "Коробка запечатана под контракт \"%s\". Отнесите её к доске контрактов.",
   "chat.farmerscontracts.box_locked": "Эта коробка запечатана, её больше нельзя открыть.",
-  "chat.farmerscontracts.box_mismatch": "В коробке должно быть ровно: %s"
+  "chat.farmerscontracts.box_mismatch": "В коробке должно быть ровно: %s",
+
+  "scoreboard.farmerscontracts.contract_points": "Очки контрактов"
 }

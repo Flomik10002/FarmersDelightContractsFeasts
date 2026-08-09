@@ -29,5 +29,7 @@
   "chat.farmerscontracts.line_amount": "%s x %s",
   "chat.farmerscontracts.box_sealed": "契约箱已为%s契约封装。请将它送到契约布告板。",
   "chat.farmerscontracts.box_locked": "这个契约箱已经封装，无法再打开。",
-  "chat.farmerscontracts.box_mismatch": "箱子里必须正好是: %s"
+  "chat.farmerscontracts.box_mismatch": "箱子里必须正好是: %s",
+
+  "scoreboard.farmerscontracts.contract_points": "契约点数"
 }
