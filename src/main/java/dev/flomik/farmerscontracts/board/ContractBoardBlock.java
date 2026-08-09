@@ -3,6 +3,8 @@ package dev.flomik.farmerscontracts.board;
 import com.mojang.serialization.MapCodec;
 import dev.flomik.farmerscontracts.Config;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
+import dev.flomik.farmerscontracts.api.ContractScoreboard;
+import dev.flomik.farmerscontracts.api.event.ContractFulfilledEvent;
 import dev.flomik.farmerscontracts.contract.ContractDataComponents;
 import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
@@ -31,6 +33,7 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.common.NeoForge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -173,14 +176,12 @@ public class ContractBoardBlock extends BaseEntityBlock {
             consumeMatching(player, objective.stack().getItem(), objective.amount());
         }
 
-        for (GeneratedLine reward : contract.rewards()) {
-            giveOrDrop(level, player, reward.stack().copyWithCount(reward.amount()));
-        }
-        player.giveExperiencePoints(contract.xp());
-
+        // Grant rewards before shrinking the ticket to empty, not after - once the ticket stack
+        // hits count 0, giveOrDrop()'s player.addItem() may treat the (now nominally empty) held
+        // stack's slot as free and place a reward straight into it, silently overwriting what
+        // should have been a consumed/empty hand.
+        finalizeCompletion(level, player, contract);
         ticket.shrink(1);
-        ContractProgress.get(level).incrementCompleted();
-        player.sendSystemMessage(Component.translatable("chat.farmerscontracts.fulfilled", ContractTicketItem.customerName(contract)));
         return true;
     }
 
@@ -200,15 +201,26 @@ public class ContractBoardBlock extends BaseEntityBlock {
             return true;
         }
 
+        // See tryTurnIn's comment: rewards must be granted before the consumed stack is shrunk
+        // to empty, or giveOrDrop() may place a reward straight into the now-"free" hand slot.
+        finalizeCompletion(level, player, contract);
+        box.shrink(1);
+        return true;
+    }
+
+    // Shared by both turn-in paths (ticket and sealed box) so reward granting, progress
+    // tracking, and mod-integration hooks (scoreboard/event) never drift between them.
+    private static void finalizeCompletion(ServerLevel level, ServerPlayer player, GeneratedContract contract) {
         for (GeneratedLine reward : contract.rewards()) {
             giveOrDrop(level, player, reward.stack().copyWithCount(reward.amount()));
         }
         player.giveExperiencePoints(contract.xp());
-
-        box.shrink(1);
         ContractProgress.get(level).incrementCompleted();
+
+        ContractScoreboard.awardTierPoints(level, player, contract.rarity());
+        NeoForge.EVENT_BUS.post(new ContractFulfilledEvent(player, contract));
+
         player.sendSystemMessage(Component.translatable("chat.farmerscontracts.fulfilled", ContractTicketItem.customerName(contract)));
-        return true;
     }
 
     private static int countMatching(Player player, Item item) {

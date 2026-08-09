@@ -9,10 +9,10 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.util.StringRepresentable;
 
 public enum ContractRarity implements StringRepresentable {
-    COMMON("common", 0x87917A, 1000.0, 0, 1.0),
-    UNCOMMON("uncommon", 0xB18A52, 350.0, 5, 1.15),
-    RARE("rare", 0x687F91, 90.0, 15, 1.35),
-    SPECIAL("special", 0x8C6278, 15.0, 30, 1.6);
+    COMMON("common", 0x87917A, 1000.0, 0, 1.0, 1),
+    UNCOMMON("uncommon", 0xB18A52, 350.0, 5, 1.15, 2),
+    RARE("rare", 0x687F91, 90.0, 15, 1.35, 3),
+    SPECIAL("special", 0x8C6278, 15.0, 30, 1.6, 4);
 
     private static final double WEIGHT_SCALING = 2.25;
 
@@ -25,13 +25,15 @@ public enum ContractRarity implements StringRepresentable {
     private final double baseWeight;
     private final long repThreshold;
     private final double rewardMultiplier;
+    private final int tierPoints;
 
-    ContractRarity(String serializedName, int rgb, double baseWeight, long repThreshold, double rewardMultiplier) {
+    ContractRarity(String serializedName, int rgb, double baseWeight, long repThreshold, double rewardMultiplier, int tierPoints) {
         this.serializedName = serializedName;
         this.color = TextColor.fromRgb(rgb);
         this.baseWeight = baseWeight;
         this.repThreshold = repThreshold;
         this.rewardMultiplier = rewardMultiplier;
+        this.tierPoints = tierPoints;
     }
 
     public TextColor color() {
@@ -48,6 +50,13 @@ public enum ContractRarity implements StringRepresentable {
 
     public double rewardMultiplier() {
         return rewardMultiplier;
+    }
+
+    // Mod-integration hook (e.g. external leveling/scoreboard systems): points a completed
+    // contract of this rarity is worth. Explicit per-constant, not derived from ordinal(), so
+    // reordering the enum can never silently change what external mods are paid.
+    public int tierPoints() {
+        return tierPoints;
     }
 
     public static ContractRarity forReputation(long completedContracts) {
