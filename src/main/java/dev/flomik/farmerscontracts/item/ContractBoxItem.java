@@ -1,11 +1,16 @@
 package dev.flomik.farmerscontracts.item;
 
 import dev.flomik.farmerscontracts.box.ContractBoxBlockEntity;
+import dev.flomik.farmerscontracts.client.ClientSetup;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+
+import java.util.List;
 
 public class ContractBoxItem extends BlockItem {
 
@@ -21,5 +26,17 @@ public class ContractBoxItem extends BlockItem {
         }
         return Component.translatable("item.farmerscontracts.contract_box.named", ContractTicketItem.customerName(data))
                 .withStyle(data.rarity().style());
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
+        GeneratedContract data = ContractBoxBlockEntity.sealedContractOf(stack);
+        if (data == null) {
+            return;
+        }
+        // A sealed box's contents are guaranteed to exactly match the order (see
+        // ContractBoxBlock.trySeal) - its tooltip is the ticket's tooltip with every line already
+        // shown as fulfilled (N/N), not recomputed from anything.
+        ContractTooltips.appendContractTooltip(data, ClientSetup.currentPlayer(), tooltip, true);
     }
 }

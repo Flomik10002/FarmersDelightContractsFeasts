@@ -17,7 +17,7 @@ public class ContractBoardMenu extends AbstractContainerMenu {
     private final ContainerLevelAccess access;
 
     public ContractBoardMenu(int containerId, Inventory playerInventory, Container container, int rows, ContainerLevelAccess access) {
-        super(FarmersContractsMod.CONTRACT_BOARD_MENU.get(), containerId);
+        super(FarmersContractsMod.CONTRACT_BOARD_MENU, containerId);
         checkContainerSize(container, rows * 9);
         this.container = container;
         this.rows = rows;
@@ -56,7 +56,7 @@ public class ContractBoardMenu extends AbstractContainerMenu {
         // SimpleContainer/MaskedBoardContainer.stillValid() is unconditionally true - it has no
         // notion of world position. Without this, the GUI would never auto-close even after the
         // player walks away or the board block is broken while the menu is still open.
-        return stillValid(access, player, FarmersContractsMod.CONTRACT_BOARD.get());
+        return stillValid(access, player, FarmersContractsMod.CONTRACT_BOARD);
     }
 
     @Override

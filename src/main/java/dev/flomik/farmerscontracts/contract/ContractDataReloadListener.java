@@ -5,6 +5,8 @@ import com.google.gson.JsonElement;
 import com.mojang.logging.LogUtils;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.JsonOps;
+import dev.flomik.farmerscontracts.FarmersContractsMod;
+import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -15,10 +17,12 @@ import org.slf4j.Logger;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ContractDataReloadListener extends SimplePreparableReloadListener<ContractDataReloadListener.LoadedData> {
+public class ContractDataReloadListener extends SimplePreparableReloadListener<ContractDataReloadListener.LoadedData>
+        implements IdentifiableResourceReloadListener {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Gson GSON = new Gson();
+    private static final ResourceLocation ID = new ResourceLocation(FarmersContractsMod.MODID, "contract_data");
 
     public static final String POOLS_DIRECTORY = "contract_pool";
     public static final String CUSTOMERS_DIRECTORY = "customer";
@@ -53,5 +57,10 @@ public class ContractDataReloadListener extends SimplePreparableReloadListener<C
                 .resultOrPartial(error -> LOGGER.error("Couldn't parse {} '{}': {}", kind, id, error))
                 .ifPresent(value -> result.put(id, value)));
         return result;
+    }
+
+    @Override
+    public ResourceLocation getFabricId() {
+        return ID;
     }
 }

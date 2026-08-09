@@ -4,7 +4,7 @@ import com.mojang.logging.LogUtils;
 import dev.flomik.farmerscontracts.Config;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
 import dev.flomik.farmerscontracts.api.ContractScoreboard;
-import dev.flomik.farmerscontracts.api.event.ContractFulfilledEvent;
+import dev.flomik.farmerscontracts.api.event.ContractFulfilledCallback;
 import dev.flomik.farmerscontracts.box.ContractBoxBlock;
 import dev.flomik.farmerscontracts.box.ContractBoxBlockEntity;
 import dev.flomik.farmerscontracts.box.ContractBoxMenu;
@@ -35,16 +35,13 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Score;
 import net.minecraft.world.scores.Scoreboard;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.common.util.FakePlayer;
-import net.minecraftforge.common.util.FakePlayerFactory;
+import dev.flomik.farmerscontracts.testutil.FakePlayer;
+import dev.flomik.farmerscontracts.testutil.FakePlayerFactory;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Headless, server-only regression checks for the board GUI/turn-in bugs fixed in this session.
@@ -70,6 +67,17 @@ public final class SelfTest {
     private final List<String> failures = new ArrayList<>();
     private int checks = 0;
 
+    // Fabric's Event<T> has no generic unregister() (unlike Forge's event bus), so instead of
+    // registering/unregistering a throwaway listener per test, one listener is registered for the
+    // whole SelfTest run and every completion it observes is appended here permanently - tests
+    // that care about ContractFulfilledCallback firing capture size() before/after their own
+    // action and assert the count grew by exactly 1, the same before/after pattern already used
+    // for ContractProgress/scoreboard (see CompletionSideEffects).
+    record FiredCompletion(net.minecraft.server.level.ServerPlayer player, GeneratedContract contract) {
+    }
+
+    private final List<FiredCompletion> firedCompletions = new ArrayList<>();
+
     private SelfTest() {
     }
 
@@ -80,6 +88,9 @@ public final class SelfTest {
     public static boolean run(MinecraftServer server) {
         SelfTest test = new SelfTest();
         ServerLevel overworld = server.overworld();
+
+        ContractFulfilledCallback.EVENT.register((player, contract) ->
+                test.firedCompletions.add(new FiredCompletion(player, contract)));
 
         test.testMaskedBoardContainerDoesNotAliasLiveStack();
         test.testTimeSetImmunity(overworld);
@@ -142,7 +153,7 @@ public final class SelfTest {
     // (the world's monotonic tick counter) - /time set and /time add only ever call
     // level.setDayTime(), which getGameTime() is structurally immune to. ---
     private void testTimeSetImmunity(ServerLevel overworld) {
-        BlockState state = FarmersContractsMod.CONTRACT_BOARD.get().defaultBlockState();
+        BlockState state = FarmersContractsMod.CONTRACT_BOARD.defaultBlockState();
         ContractBoardBlockEntity entity = new ContractBoardBlockEntity(TICK_TEST_POS, state);
 
         // Initial population (pristine board) - not the behavior under test, just gets the board
@@ -166,7 +177,7 @@ public final class SelfTest {
     // ported from Bountiful's numUpdates catch-up logic in upkeepBountyGeneration(). ---
     private void testBoardRefreshCatchesUpAfterLongAbsence(ServerLevel overworld) {
         BlockPos pos = TICK_TEST_POS.above();
-        BlockState state = FarmersContractsMod.CONTRACT_BOARD.get().defaultBlockState();
+        BlockState state = FarmersContractsMod.CONTRACT_BOARD.defaultBlockState();
         ContractBoardBlockEntity entity = new ContractBoardBlockEntity(pos, state);
 
         // First tick performs initial population and sets lastUpdateGameTime to "now" - force it
@@ -194,7 +205,7 @@ public final class SelfTest {
     private void testBoardGlobalStateSharesContentsAcrossBoards(ServerLevel overworld) {
         Config.setBoardGlobalStateForTest(true);
         try {
-            BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.get().defaultBlockState();
+            BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.defaultBlockState();
             overworld.setBlockAndUpdate(BOARD_GLOBAL_TEST_POS_A, boardState);
             overworld.setBlockAndUpdate(BOARD_GLOBAL_TEST_POS_B, boardState);
             ContractBoardBlockEntity entityA = (ContractBoardBlockEntity) overworld.getBlockEntity(BOARD_GLOBAL_TEST_POS_A);
@@ -246,10 +257,10 @@ public final class SelfTest {
                 new RewardBundle(List.of(new GeneratedLine(new ItemStack(Items.EMERALD), 1, 1.0)), 10),
                 overworld.getGameTime() + 1_000_000L
         );
-        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket, contract);
 
-        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
+        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD;
 
         // Under-fund case: 6 wheat on hand, contract needs 5 + 3 = 8 combined.
         player.getInventory().add(new ItemStack(Items.WHEAT, 6));
@@ -276,7 +287,7 @@ public final class SelfTest {
 
     // --- Bug 4: the menu must close when the player walks away or the block is destroyed ---
     private void testStillValidClosesOnDistanceAndBlockRemoval(ServerLevel overworld) {
-        BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.get().defaultBlockState();
+        BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.defaultBlockState();
         overworld.setBlockAndUpdate(STILL_VALID_TEST_POS, boardState);
         ContractBoardBlockEntity entity = (ContractBoardBlockEntity) overworld.getBlockEntity(STILL_VALID_TEST_POS);
         check(entity != null, "Board block entity must exist right after placing the block");
@@ -311,7 +322,7 @@ public final class SelfTest {
     // placement) - simulated here directly via saveWithoutMetadata()/load() since there's no
     // client placement flow in a headless test.
     private void testBoardPreservesOffersAcrossBreakAndReplace(ServerLevel overworld) {
-        BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.get().defaultBlockState();
+        BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.defaultBlockState();
         overworld.setBlockAndUpdate(BOARD_PRESERVE_TEST_POS, boardState);
         ContractBoardBlockEntity entity = (ContractBoardBlockEntity) overworld.getBlockEntity(BOARD_PRESERVE_TEST_POS);
         check(entity != null, "Board block entity must exist right after placing the block");
@@ -348,7 +359,7 @@ public final class SelfTest {
     // both by direct placement and by repeated shift-click (see ContractBoxBlockEntity's and
     // ContractBoxMenu's getMaxStackSize overrides / custom quickMoveStack merge logic) ---
     private void testBoxAcceptsNonStackableItemsBeyondTheirNormalMax(ServerLevel overworld) {
-        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState();
+        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.defaultBlockState();
         overworld.setBlockAndUpdate(BOX_NONSTACKABLE_TEST_POS, boxState);
         ContractBoxBlockEntity box = (ContractBoxBlockEntity) overworld.getBlockEntity(BOX_NONSTACKABLE_TEST_POS);
         check(box != null, "Box block entity must exist right after placing the block");
@@ -398,7 +409,7 @@ public final class SelfTest {
     // inventory or taking out is fine"). This goes through AbstractContainerMenu#clicked
     // (ClickType.PICKUP), a completely different code path from quickMoveStack/shift-click.
     private void testBoxSlotToSlotDragMergesNonStackableItems(ServerLevel overworld) {
-        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState();
+        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.defaultBlockState();
         BlockPos pos = BOX_NONSTACKABLE_TEST_POS.above();
         overworld.setBlockAndUpdate(pos, boxState);
         ContractBoxBlockEntity box = (ContractBoxBlockEntity) overworld.getBlockEntity(pos);
@@ -433,7 +444,7 @@ public final class SelfTest {
     // can legitimately refuse to add such a slot to the drag at all (a silent no-op is acceptable,
     // data loss is not).
     private void testBoxMouseDragAcrossSlotsNeverLosesCount(ServerLevel overworld) {
-        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState();
+        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.defaultBlockState();
         BlockPos pos = BOX_NONSTACKABLE_TEST_POS.above().above();
         overworld.setBlockAndUpdate(pos, boxState);
         ContractBoxBlockEntity box = (ContractBoxBlockEntity) overworld.getBlockEntity(pos);
@@ -472,7 +483,7 @@ public final class SelfTest {
     private void testBoxSealValidatesAndConsumesContents(ServerLevel overworld) {
         // Facing set to something other than the default (NORTH) on purpose - sealing must only
         // ever flip SEALED, never reset the block back to whichever way it happened to be placed.
-        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState()
+        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.defaultBlockState()
                 .setValue(ContractBoxBlock.FACING, Direction.EAST);
         overworld.setBlockAndUpdate(BOX_SEAL_TEST_POS, boxState);
         ContractBoxBlockEntity box = (ContractBoxBlockEntity) overworld.getBlockEntity(BOX_SEAL_TEST_POS);
@@ -485,10 +496,10 @@ public final class SelfTest {
                 new GeneratedLine(new ItemStack(Items.WHEAT), 5, 5.0),
                 new GeneratedLine(new ItemStack(Items.WHEAT), 3, 3.0)
         ), overworld.getGameTime() + 1_000_000L);
-        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket, contract);
 
-        ContractBoxBlock block = (ContractBoxBlock) FarmersContractsMod.CONTRACT_BOX.get();
+        ContractBoxBlock block = (ContractBoxBlock) FarmersContractsMod.CONTRACT_BOX;
         FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
 
         // Under-funded: 6 wheat in the box, contract needs 5 + 3 = 8 combined.
@@ -516,7 +527,7 @@ public final class SelfTest {
 
     // --- Contract Box: the ticket verifies the box holds ONLY the order, nothing extra ---
     private void testBoxSealRejectsForeignItemsAndOverfill(ServerLevel overworld) {
-        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState();
+        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.defaultBlockState();
         overworld.setBlockAndUpdate(BOX_MISMATCH_TEST_POS, boxState);
         ContractBoxBlockEntity box = (ContractBoxBlockEntity) overworld.getBlockEntity(BOX_MISMATCH_TEST_POS);
         check(box != null, "Box block entity must exist right after placing the block");
@@ -527,13 +538,13 @@ public final class SelfTest {
         GeneratedContract contract = testContract(
                 List.of(new GeneratedLine(new ItemStack(Items.WHEAT), 4, 4.0)),
                 overworld.getGameTime() + 1_000_000L);
-        ContractBoxBlock block = (ContractBoxBlock) FarmersContractsMod.CONTRACT_BOX.get();
+        ContractBoxBlock block = (ContractBoxBlock) FarmersContractsMod.CONTRACT_BOX;
         FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
 
         // Foreign item present alongside the exact right amount of wheat - must still be rejected.
         box.container().setItem(0, new ItemStack(Items.WHEAT, 4));
         box.container().setItem(1, new ItemStack(Items.STICK, 1));
-        ItemStack ticket1 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket1 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket1, contract);
         boolean withForeignItem = block.trySeal(overworld, player, BOX_MISMATCH_TEST_POS, ticket1);
         check(!withForeignItem, "Box must not seal while it holds an item that isn't part of the order (a stick)");
@@ -546,7 +557,7 @@ public final class SelfTest {
         // since the ticket certifies the box holds exactly the order, not "at least" the order.
         box.container().setItem(1, ItemStack.EMPTY);
         box.container().setItem(0, new ItemStack(Items.WHEAT, 6));
-        ItemStack ticket2 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket2 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket2, contract);
         boolean overfilled = block.trySeal(overworld, player, BOX_MISMATCH_TEST_POS, ticket2);
         check(!overfilled, "Box must not seal with 6 wheat when the order needs exactly 4");
@@ -555,7 +566,7 @@ public final class SelfTest {
 
         // Exactly right - now it seals.
         box.container().setItem(0, new ItemStack(Items.WHEAT, 4));
-        ItemStack ticket3 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket3 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket3, contract);
         boolean exact = block.trySeal(overworld, player, BOX_MISMATCH_TEST_POS, ticket3);
         check(exact, "Box must seal once it holds exactly the required 4 wheat and nothing else");
@@ -563,7 +574,7 @@ public final class SelfTest {
 
     // --- Contract Box: an expired ticket voids itself without sealing (mirrors the board's ticket path) ---
     private void testBoxSealExpiredContractVoidsTicketWithoutSealing(ServerLevel overworld) {
-        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState();
+        BlockState boxState = FarmersContractsMod.CONTRACT_BOX.defaultBlockState();
         overworld.setBlockAndUpdate(BOX_EXPIRED_TEST_POS, boxState);
         ContractBoxBlockEntity box = (ContractBoxBlockEntity) overworld.getBlockEntity(BOX_EXPIRED_TEST_POS);
         check(box != null, "Box block entity must exist right after placing the block");
@@ -574,10 +585,10 @@ public final class SelfTest {
         GeneratedContract expired = testContract(
                 List.of(new GeneratedLine(new ItemStack(Items.WHEAT), 1, 1.0)),
                 overworld.getGameTime() - 1L);
-        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket, expired);
 
-        ContractBoxBlock block = (ContractBoxBlock) FarmersContractsMod.CONTRACT_BOX.get();
+        ContractBoxBlock block = (ContractBoxBlock) FarmersContractsMod.CONTRACT_BOX;
         FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
 
         boolean result = block.trySeal(overworld, player, BOX_EXPIRED_TEST_POS, ticket);
@@ -595,7 +606,7 @@ public final class SelfTest {
                 overworld.getGameTime() + 1_000_000L);
         ItemStack sealedBox = sealedBoxStack(contract);
 
-        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
+        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD;
         FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
         player.getInventory().clearContent();
         long completedBefore = ContractProgress.get(overworld).completedContracts();
@@ -615,7 +626,7 @@ public final class SelfTest {
                 overworld.getGameTime() - 1L);
         ItemStack sealedBox = sealedBoxStack(expired);
 
-        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
+        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD;
         FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
         player.getInventory().clearContent();
         long completedBefore = ContractProgress.get(overworld).completedContracts();
@@ -630,10 +641,10 @@ public final class SelfTest {
 
     // --- Config.DeliveryMode gates which turn-in path the board accepts ---
     private void testDeliveryModeGatesTurnInPaths(ServerLevel overworld) {
-        BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.get().defaultBlockState();
+        BlockState boardState = FarmersContractsMod.CONTRACT_BOARD.defaultBlockState();
         overworld.setBlockAndUpdate(BOX_GATING_BOARD_POS, boardState);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(BOX_GATING_BOARD_POS), Direction.UP, BOX_GATING_BOARD_POS, false);
-        ContractBoardBlock board = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
+        ContractBoardBlock board = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD;
         FakePlayer player = FakePlayerFactory.getMinecraft(overworld);
         player.getInventory().clearContent();
         player.setShiftKeyDown(false);
@@ -646,7 +657,7 @@ public final class SelfTest {
         try {
             Config.setDeliveryModeForTest(Config.DeliveryMode.BOX_ONLY);
 
-            ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+            ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
             ContractTicketItem.setData(ticket, contract);
             player.setItemInHand(InteractionHand.MAIN_HAND, ticket);
             board.use(boardState, overworld, BOX_GATING_BOARD_POS, player, InteractionHand.MAIN_HAND, hit);
@@ -667,7 +678,7 @@ public final class SelfTest {
             check(player.getItemInHand(InteractionHand.MAIN_HAND).getCount() == 1,
                     "TICKET_ONLY must refuse a sealed box turn-in (box must remain unconsumed)");
 
-            ItemStack ticket2 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+            ItemStack ticket2 = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
             ContractTicketItem.setData(ticket2, contract);
             player.setItemInHand(InteractionHand.MAIN_HAND, ticket2);
             board.use(boardState, overworld, BOX_GATING_BOARD_POS, player, InteractionHand.MAIN_HAND, hit);
@@ -680,7 +691,7 @@ public final class SelfTest {
 
         // Placing a fresh, unsealed box must never come out already sealed (regression guard for
         // getStateForPlacement reading the wrong tag off an empty BlockItem).
-        overworld.setBlockAndUpdate(BOX_GATING_BOX_POS, FarmersContractsMod.CONTRACT_BOX.get().defaultBlockState());
+        overworld.setBlockAndUpdate(BOX_GATING_BOX_POS, FarmersContractsMod.CONTRACT_BOX.defaultBlockState());
         check(!overworld.getBlockState(BOX_GATING_BOX_POS).getValue(ContractBoxBlock.SEALED),
                 "A freshly placed, empty Contract Box must not start sealed");
     }
@@ -696,8 +707,8 @@ public final class SelfTest {
     }
 
     // --- Mod-integration hooks: a completed contract must increment ContractProgress, award
-    // fc_points scoreboard points scaled by rarity tier, and fire ContractFulfilledEvent exactly
-    // once - checked on both completion paths (ticket turn-in and sealed-box delivery)
+    // fc_points scoreboard points scaled by rarity tier, and fire ContractFulfilledCallback
+    // exactly once - checked on both completion paths (ticket turn-in and sealed-box delivery)
     // separately, since ContractBoardBlock.finalizeCompletion() is the one place both are
     // supposed to funnel through and a regression in either caller wouldn't otherwise show. ---
     private void testTicketTurnInAwardsProgressScoreboardAndEvent(ServerLevel overworld) {
@@ -707,28 +718,16 @@ public final class SelfTest {
         GeneratedContract contract = testContract(
                 List.of(new GeneratedLine(new ItemStack(Items.WHEAT), 1, 1.0)),
                 overworld.getGameTime() + 1_000_000L);
-        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket, contract);
         player.getInventory().add(new ItemStack(Items.WHEAT, 1));
 
-        CompletionSideEffects before = CompletionSideEffects.capture(overworld, player);
-        List<ContractFulfilledEvent> fired = new ArrayList<>();
-        Consumer<ContractFulfilledEvent> listener = fired::add;
-        // Old Forge's single-arg addListener(Consumer<T>) resolves T via ASM/reflection on the
-        // consumer's generated class, which fails for a method reference into a generic
-        // collection method (List.add erases to accept(Object)) - the 4-arg overload sidesteps
-        // that entirely by naming the event class explicitly.
-        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, ContractFulfilledEvent.class, listener);
+        CompletionSideEffects before = CompletionSideEffects.capture(overworld, player, firedCompletions.size());
 
-        boolean result;
-        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
-        try {
-            result = block.tryTurnIn(overworld, player, ticket);
-        } finally {
-            MinecraftForge.EVENT_BUS.unregister(listener);
-        }
+        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD;
+        boolean result = block.tryTurnIn(overworld, player, ticket);
 
-        checkCompletionSideEffects(overworld, player, contract, result, before, fired, "Ticket turn-in");
+        checkCompletionSideEffects(overworld, player, contract, result, before, "Ticket turn-in");
     }
 
     private void testBoxDeliveryAwardsProgressScoreboardAndEvent(ServerLevel overworld) {
@@ -740,31 +739,19 @@ public final class SelfTest {
                 overworld.getGameTime() + 1_000_000L);
         ItemStack sealedBox = sealedBoxStack(contract);
 
-        CompletionSideEffects before = CompletionSideEffects.capture(overworld, player);
-        List<ContractFulfilledEvent> fired = new ArrayList<>();
-        Consumer<ContractFulfilledEvent> listener = fired::add;
-        // Old Forge's single-arg addListener(Consumer<T>) resolves T via ASM/reflection on the
-        // consumer's generated class, which fails for a method reference into a generic
-        // collection method (List.add erases to accept(Object)) - the 4-arg overload sidesteps
-        // that entirely by naming the event class explicitly.
-        MinecraftForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, ContractFulfilledEvent.class, listener);
+        CompletionSideEffects before = CompletionSideEffects.capture(overworld, player, firedCompletions.size());
 
-        boolean result;
-        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD.get();
-        try {
-            result = block.tryDeliverBox(overworld, player, sealedBox);
-        } finally {
-            MinecraftForge.EVENT_BUS.unregister(listener);
-        }
+        ContractBoardBlock block = (ContractBoardBlock) FarmersContractsMod.CONTRACT_BOARD;
+        boolean result = block.tryDeliverBox(overworld, player, sealedBox);
 
-        checkCompletionSideEffects(overworld, player, contract, result, before, fired, "Box delivery");
+        checkCompletionSideEffects(overworld, player, contract, result, before, "Box delivery");
     }
 
-    private record CompletionSideEffects(long completedContracts, int score) {
-        static CompletionSideEffects capture(ServerLevel overworld, FakePlayer player) {
+    private record CompletionSideEffects(long completedContracts, int score, int firedCompletionsCount) {
+        static CompletionSideEffects capture(ServerLevel overworld, FakePlayer player, int firedCompletionsCount) {
             Objective objective = overworld.getServer().getScoreboard().getObjective(ContractScoreboard.OBJECTIVE_NAME);
             int score = objective == null ? 0 : overworld.getServer().getScoreboard().getOrCreatePlayerScore(player.getScoreboardName(), objective).getScore();
-            return new CompletionSideEffects(ContractProgress.get(overworld).completedContracts(), score);
+            return new CompletionSideEffects(ContractProgress.get(overworld).completedContracts(), score, firedCompletionsCount);
         }
     }
 
@@ -774,7 +761,6 @@ public final class SelfTest {
             GeneratedContract contract,
             boolean result,
             CompletionSideEffects before,
-            List<ContractFulfilledEvent> fired,
             String pathLabel
     ) {
         check(result, pathLabel + ": completion must succeed (test setup sanity check)");
@@ -792,10 +778,11 @@ public final class SelfTest {
                             + " fc_points (before=" + before.score() + ", after=" + scoreAfter.getScore() + ")");
         }
 
-        check(fired.size() == 1, pathLabel + ": completion must fire ContractFulfilledEvent exactly once (fired " + fired.size() + " times)");
-        if (fired.size() == 1) {
-            ContractFulfilledEvent event = fired.get(0);
-            check(event.player() == player, pathLabel + ": ContractFulfilledEvent must carry the completing player");
+        int firedSinceBefore = firedCompletions.size() - before.firedCompletionsCount();
+        check(firedSinceBefore == 1, pathLabel + ": completion must fire ContractFulfilledCallback exactly once (fired " + firedSinceBefore + " times)");
+        if (firedSinceBefore == 1) {
+            FiredCompletion event = firedCompletions.get(firedCompletions.size() - 1);
+            check(event.player() == player, pathLabel + ": ContractFulfilledCallback must carry the completing player");
             // Not a whole-record .equals(): contract data round-trips through NBT on this branch
             // (ContractTicketItem.setData/dataOf, ContractBoxBlockEntity.sealedContractOf), so the
             // event's contract is a freshly-deserialized copy with its own ItemStack instances -
@@ -803,9 +790,10 @@ public final class SelfTest {
             // never match here even for identical data (same pattern as sealedContract() checks
             // elsewhere in this file).
             check(event.contract().customerId().equals(contract.customerId()),
-                    pathLabel + ": ContractFulfilledEvent must carry the completed contract");
-            check(event.rarity() == ContractRarity.COMMON, pathLabel + ": ContractFulfilledEvent must report the contract's rarity");
-            check(event.tierPoints() == ContractRarity.COMMON.tierPoints(), pathLabel + ": ContractFulfilledEvent must report the rarity's tier points");
+                    pathLabel + ": ContractFulfilledCallback must carry the completed contract");
+            check(event.contract().rarity() == ContractRarity.COMMON, pathLabel + ": ContractFulfilledCallback must report the contract's rarity");
+            check(event.contract().rarity().tierPoints() == ContractRarity.COMMON.tierPoints(),
+                    pathLabel + ": ContractFulfilledCallback must report the rarity's tier points");
         }
     }
 
@@ -821,7 +809,7 @@ public final class SelfTest {
     }
 
     private static ItemStack sealedBoxStack(GeneratedContract contract) {
-        ItemStack stack = new ItemStack(FarmersContractsMod.CONTRACT_BOX_ITEM.get());
+        ItemStack stack = new ItemStack(FarmersContractsMod.CONTRACT_BOX_ITEM);
         CompoundTag blockEntityTag = new CompoundTag();
         blockEntityTag.put("SealedContract", contract.toNbt());
         stack.addTagElement("BlockEntityTag", blockEntityTag);

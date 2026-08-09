@@ -35,7 +35,7 @@ public class ContractBoxBlockEntity extends BlockEntity implements MenuProvider 
     private GeneratedContract sealedContract;
 
     public ContractBoxBlockEntity(BlockPos pos, BlockState state) {
-        super(FarmersContractsMod.CONTRACT_BOX_ENTITY.get(), pos, state);
+        super(FarmersContractsMod.CONTRACT_BOX_ENTITY, pos, state);
     }
 
     public SimpleContainer container() {

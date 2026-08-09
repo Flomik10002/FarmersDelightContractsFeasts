@@ -16,7 +16,7 @@ public class ContractBoxMenu extends AbstractContainerMenu {
     private final Container container;
 
     public ContractBoxMenu(int containerId, Inventory playerInventory, Container container) {
-        super(FarmersContractsMod.CONTRACT_BOX_MENU.get(), containerId);
+        super(FarmersContractsMod.CONTRACT_BOX_MENU, containerId);
         checkContainerSize(container, ContractBoxBlockEntity.SLOTS);
         this.container = container;
         container.startOpen(playerInventory.player);

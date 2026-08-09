@@ -146,7 +146,7 @@ public class ContractBoxBlock extends BaseEntityBlock {
     @Override
     public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
         if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof ContractBoxBlockEntity box) {
-            ItemStack stack = new ItemStack(FarmersContractsMod.CONTRACT_BOX_ITEM.get());
+            ItemStack stack = new ItemStack(FarmersContractsMod.CONTRACT_BOX_ITEM);
             CompoundTag tag = box.saveWithoutMetadata();
             if (!tag.isEmpty()) {
                 stack.addTagElement(BLOCK_ENTITY_TAG, tag);

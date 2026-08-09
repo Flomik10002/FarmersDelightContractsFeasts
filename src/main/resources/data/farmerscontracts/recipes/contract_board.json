@@ -1,7 +1,4 @@
 {
-  "forge:conditions": [
-    { "type": "farmerscontracts:board_craftable" }
-  ],
   "type": "minecraft:crafting_shaped",
   "category": "building",
   "key": {

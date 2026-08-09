@@ -1,68 +1,104 @@
 package dev.flomik.farmerscontracts;
 
-import net.minecraftforge.common.ForgeConfigSpec;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.mojang.logging.LogUtils;
+import net.fabricmc.loader.api.FabricLoader;
+import org.slf4j.Logger;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+// Fabric has no equivalent of NeoForge's ModConfigSpec, so this is a small hand-rolled JSON
+// config carrying the same 4 options as the NeoForge/Forge branches. Loaded once at startup
+// (see FarmersContractsMod#onInitialize); values are cached in static fields and re-saved
+// whenever the file is missing/incomplete, so adding a new option later doesn't require players
+// to delete their config.
 public final class Config {
-    private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
+    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Path CONFIG_PATH = FabricLoader.getInstance().getConfigDir().resolve("farmerscontracts.json");
 
     public enum DeliveryMode {
         TICKET_ONLY,
         BOX_ONLY
     }
 
-    private static final ForgeConfigSpec.EnumValue<DeliveryMode> DELIVERY_MODE = BUILDER
-            .comment(
-                    "How contracts may be turned in.",
-                    "TICKET_ONLY: turn in a Contract Ticket directly at the Contract Board using items from the player's inventory. The Contract Box recipe/item is disabled entirely.",
-                    "BOX_ONLY: fill a Contract Box, seal it with the ticket, then deliver the sealed box to the Contract Board. Turning in a ticket straight from inventory is disabled.")
-            .defineEnum("deliveryMode", DeliveryMode.BOX_ONLY);
+    private static final class Data {
+        // How contracts may be turned in.
+        // TICKET_ONLY: turn in a Contract Ticket directly at the Contract Board using items from
+        // the player's inventory. The Contract Box recipe/item is disabled entirely.
+        // BOX_ONLY: fill a Contract Box, seal it with the ticket, then deliver the sealed box to
+        // the Contract Board. Turning in a ticket straight from inventory is disabled.
+        DeliveryMode deliveryMode = DeliveryMode.BOX_ONLY;
+        // How often (in real seconds) the Contract Board attempts to refill/rotate its offers.
+        // Matches Bountiful's default (45).
+        int boardUpdateFrequencySeconds = 45;
+        // Whether players are allowed to break the Contract Board at all.
+        boolean boardCanBreak = true;
+        // If true, every Contract Board on the server shares one pool of offers/timers
+        // (GlobalBoardData) instead of each board keeping its own independent state. Matches
+        // Bountiful's board.globalBoardState default (false).
+        boolean boardGlobalState = false;
+    }
 
-    // Board refresh/breaking behavior, ported 1:1 from Bountiful's board.updateFrequencySecs /
-    // board.canBreak (reference/Bountiful, BountifulConfigData.kt) - see
-    // docs/board-lifecycle-audit.md for the full comparison.
-    private static final ForgeConfigSpec.IntValue BOARD_UPDATE_FREQUENCY_SECONDS = BUILDER
-            .comment("How often (in real seconds) the Contract Board attempts to refill/rotate its offers. Matches Bountiful's default (45).")
-            .defineInRange("boardUpdateFrequencySeconds", 45, 1, Integer.MAX_VALUE);
+    private static Data data = new Data();
 
-    private static final ForgeConfigSpec.BooleanValue BOARD_CAN_BREAK = BUILDER
-            .comment("Whether players are allowed to break the Contract Board at all.")
-            .define("boardCanBreak", true);
+    private Config() {
+    }
 
-    private static final ForgeConfigSpec.BooleanValue BOARD_GLOBAL_STATE = BUILDER
-            .comment(
-                    "If true, every Contract Board on the server shares one pool of offers/timers (GlobalBoardData) instead of each board keeping its own independent state.",
-                    "Matches Bountiful's board.globalBoardState default (false).")
-            .define("boardGlobalState", false);
+    public static void load() {
+        if (Files.exists(CONFIG_PATH)) {
+            try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+                Data loaded = GSON.fromJson(reader, Data.class);
+                if (loaded != null) {
+                    data = loaded;
+                }
+            } catch (IOException e) {
+                LOGGER.error("Failed to read {}, using defaults", CONFIG_PATH, e);
+            }
+        }
+        save();
+    }
 
-    static final ForgeConfigSpec SPEC = BUILDER.build();
+    private static void save() {
+        try {
+            Files.createDirectories(CONFIG_PATH.getParent());
+            try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
+                GSON.toJson(data, writer);
+            }
+        } catch (IOException e) {
+            LOGGER.error("Failed to write {}", CONFIG_PATH, e);
+        }
+    }
 
     public static DeliveryMode deliveryMode() {
-        return DELIVERY_MODE.get();
+        return data.deliveryMode;
     }
 
     public static int boardUpdateFrequencySeconds() {
-        return BOARD_UPDATE_FREQUENCY_SECONDS.get();
+        return data.boardUpdateFrequencySeconds;
     }
 
     public static boolean boardCanBreak() {
-        return BOARD_CAN_BREAK.get();
+        return data.boardCanBreak;
     }
 
     public static boolean boardGlobalState() {
-        return BOARD_GLOBAL_STATE.get();
+        return data.boardGlobalState;
     }
 
     // Test-only hook (SelfTest) to exercise both delivery-mode branches without a real config
-    // file/restart - see ForgeConfigSpec.ConfigValue#set, which mutates the live cached value.
+    // file/restart.
     public static void setDeliveryModeForTest(DeliveryMode mode) {
-        DELIVERY_MODE.set(mode);
+        data.deliveryMode = mode;
     }
 
     // Test-only hook (SelfTest), same rationale as setDeliveryModeForTest.
     public static void setBoardGlobalStateForTest(boolean value) {
-        BOARD_GLOBAL_STATE.set(value);
-    }
-
-    private Config() {
+        data.boardGlobalState = value;
     }
 }

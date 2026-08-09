@@ -145,7 +145,9 @@ public final class RecipeCostSolver {
 
     private static double unknownItemCost(ResourceLocation itemId) {
         Item item = BuiltInRegistries.ITEM.get(itemId);
-        FoodProperties food = item.getFoodProperties(new ItemStack(item), null);
+        // Forge patches a (ItemStack, LivingEntity) context-aware overload onto vanilla's Item;
+        // the no-arg form is the one that actually exists upstream/on Fabric.
+        FoodProperties food = item.getFoodProperties();
         if (food == null) {
             return FALLBACK_COST;
         }

@@ -1,26 +1,6 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
-        maven { url = 'https://maven.parchmentmc.org' }
-        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
-        classpath group: 'org.spongepowered', name: 'mixingradle', version: '0.7-SNAPSHOT'
-        classpath 'org.parchmentmc:librarian:1.+'
-    }
-}
-
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.parchmentmc.librarian.forgegradle'
-apply plugin: 'eclipse'
-apply plugin: 'idea'
-apply plugin: 'maven-publish'
-apply plugin: 'org.spongepowered.mixin'
-
-mixin {
-    add sourceSets.main, "farmerscontracts.refmap.json"
+plugins {
+    id 'fabric-loom' version '1.6-SNAPSHOT'
+    id 'maven-publish'
 }
 
 version = mod_version
@@ -30,142 +10,88 @@ base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
-
-sourceSets.main.resources {
-    srcDir 'src/generated/resources'
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    withSourcesJar()
 }
 
-minecraft {
-    mappings channel: 'parchment', version: "${parchment_mappings_version}"
-
+loom {
     runs {
-        client {
-            workingDirectory project.file('run/client')
-            arg '-mixin.config=farmerscontracts.mixins.json'
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                farmerscontracts {
-                    source sourceSets.main
-                }
-            }
+        // Headless regression checks (board/box/api - see board.SelfTest), same gating pattern
+        // as the neoforge/1.21.1 and forge/1.20.1 branches' `runSelfTest` task.
+        selfTest {
+            server()
+            name 'Self Test'
+            vmArgs('-Dfarmerscontracts.selftest=true')
         }
-
-        server {
-            workingDirectory project.file('run/server')
-            arg '-mixin.config=farmerscontracts.mixins.json'
-            args '--nogui'
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                farmerscontracts {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        // Dedicated task for economy balance-tuning (mod.md §6): boots a plain dedicated server just
-        // long enough to run BalanceCheck against whatever datapack content is loaded, prints
-        // worth/reward stats per customer/rarity, then shuts itself down. `./gradlew runBalance`.
-        serverBalance {
-            parent runs.server
-            environment 'target', 'forgeserveruserdev'
-            workingDirectory project.file('run/balance')
-            arg '-mixin.config=farmerscontracts.mixins.json'
-            args '--nogui'
-            property 'farmerscontracts.balance', 'true'
-
-            mods {
-                farmerscontracts {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        // Dedicated task for the headless regression checks in SelfTest.java: boots a plain
-        // dedicated server, waits for it to be fully up (ServerStartedEvent - world/chunks ready,
-        // unlike the earlier ServerStartingEvent that BalanceCheck uses), runs the checks, logs
-        // PASS/FAIL per check plus a summary, then shuts itself down. `./gradlew runServerSelfTest`.
-        serverSelfTest {
-            parent runs.server
-            environment 'target', 'forgeserveruserdev'
-            workingDirectory project.file('run/selfTest')
-            arg '-mixin.config=farmerscontracts.mixins.json'
-            args '--nogui'
-            property 'farmerscontracts.selftest', 'true'
-
-            mods {
-                farmerscontracts {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        gameTestServer {
-            workingDirectory project.file('run/gameTestServer')
-            arg '-mixin.config=farmerscontracts.mixins.json'
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                farmerscontracts {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        data {
-            workingDirectory project.file('run/data')
-            args '--mod', mod_id, '--all',
-                    '--output', file('src/generated/resources/').absolutePath,
-                    '--existing', file('src/main/resources/').absolutePath
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                farmerscontracts {
-                    source sourceSets.main
-                }
-            }
+        // Economy balance-tuning dump (see contract.BalanceCheck).
+        balance {
+            server()
+            name 'Balance Check'
+            vmArgs('-Dfarmerscontracts.balance=true')
         }
     }
 }
 
 repositories {
     maven {
-        name = 'Modrinth'
-        url = 'https://api.modrinth.com/maven'
-        content {
-            includeGroup 'maven.modrinth'
+        // Parchment mappings
+        url = 'https://maven.parchmentmc.org'
+    }
+    maven {
+        // Farmer's Delight Refabricated
+        name = "Cassian's Maven"
+        url = 'https://maven.cassian.cc'
+    }
+    maven {
+        // Porting Lib (FarmersDelightRefabricated 1.20.1 transitive dependency)
+        url = 'https://mvn.devos.one/releases/'
+    }
+    maven {
+        // Reach Entity Attributes (Porting Lib transitive dependency)
+        url = 'https://maven.jamieswhiteshirt.com/libs-release'
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                // Fabric-ASM (Porting Lib transitive dependency)
+                url = 'https://jitpack.io'
+            }
+        }
+        filter {
+            includeGroup 'com.github.Chocohead'
         }
     }
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    implementation fg.deobf("maven.modrinth:farmers-delight:${farmers_delight_version}")
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.layered() {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${parchment_version}@zip")
+    }
 
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    modImplementation("vectorwing:FarmersDelight:${fdrf_version}") {
+        exclude(group: "net.fabricmc")
+    }
 }
 
-tasks.withType(ProcessResources).configureEach {
+processResources {
     def replaceProperties = [
-            minecraft_version: minecraft_version,
-            forge_version    : forge_version,
-            mod_id           : mod_id,
-            mod_name         : mod_name,
-            mod_license      : mod_license,
-            mod_version      : mod_version,
-            mod_authors      : mod_authors,
-            mod_description  : mod_description
+            mod_id         : mod_id,
+            mod_name       : mod_name,
+            mod_license    : mod_license,
+            mod_version    : mod_version,
+            mod_authors    : mod_authors,
+            mod_description: mod_description
     ]
 
     inputs.properties replaceProperties
 
-    filesMatching('META-INF/mods.toml') {
+    filesMatching('fabric.mod.json') {
         expand replaceProperties
     }
 }
@@ -174,34 +100,10 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-tasks.named('jar', Jar).configure {
-    manifest {
-        attributes(
-                'Specification-Title': mod_id,
-                'Specification-Vendor': mod_authors,
-                'Specification-Version': '1',
-                'Implementation-Title': project.name,
-                'Implementation-Version': project.jar.archiveVersion,
-                'Implementation-Vendor': mod_authors,
-                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-                'MixinConfigs': 'farmerscontracts.mixins.json'
-        )
-    }
-}
-
-jar.finalizedBy('reobfJar')
-
 publishing {
     publications {
         register('mavenJava', MavenPublication) {
-            artifact jar
+            from components.java
         }
-    }
-}
-
-idea {
-    module {
-        downloadSources = true
-        downloadJavadoc = true
     }
 }

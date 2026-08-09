@@ -1,10 +1,15 @@
 package dev.flomik.farmerscontracts.item;
 
+import dev.flomik.farmerscontracts.client.ClientSetup;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
+
+import java.util.List;
 
 public class ContractTicketItem extends Item {
 
@@ -34,6 +39,15 @@ public class ContractTicketItem extends Item {
         }
         return Component.translatable("item.farmerscontracts.contract_ticket.named", customerName(data))
                 .withStyle(data.rarity().style());
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, Level level, List<Component> tooltip, TooltipFlag flag) {
+        GeneratedContract data = dataOf(stack);
+        if (data == null) {
+            return;
+        }
+        ContractTooltips.appendContractTooltip(data, ClientSetup.currentPlayer(), tooltip, false);
     }
 
     public static Component customerName(GeneratedContract data) {

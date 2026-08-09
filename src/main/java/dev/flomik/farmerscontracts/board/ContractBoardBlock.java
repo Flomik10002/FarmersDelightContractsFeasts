@@ -3,7 +3,7 @@ package dev.flomik.farmerscontracts.board;
 import dev.flomik.farmerscontracts.Config;
 import dev.flomik.farmerscontracts.FarmersContractsMod;
 import dev.flomik.farmerscontracts.api.ContractScoreboard;
-import dev.flomik.farmerscontracts.api.event.ContractFulfilledEvent;
+import dev.flomik.farmerscontracts.api.event.ContractFulfilledCallback;
 import dev.flomik.farmerscontracts.box.ContractBoxBlockEntity;
 import dev.flomik.farmerscontracts.contract.ContractProgress;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
@@ -34,7 +34,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraftforge.common.MinecraftForge;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,7 +71,7 @@ public class ContractBoardBlock extends BaseEntityBlock {
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
         return level.isClientSide
                 ? null
-                : createTickerHelper(type, FarmersContractsMod.CONTRACT_BOARD_ENTITY.get(), ContractBoardBlockEntity::tick);
+                : createTickerHelper(type, FarmersContractsMod.CONTRACT_BOARD_ENTITY, ContractBoardBlockEntity::tick);
     }
 
     @Override
@@ -91,7 +90,7 @@ public class ContractBoardBlock extends BaseEntityBlock {
     @Override
     public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
         if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof ContractBoardBlockEntity board) {
-            ItemStack stack = new ItemStack(FarmersContractsMod.CONTRACT_BOARD_ITEM.get());
+            ItemStack stack = new ItemStack(FarmersContractsMod.CONTRACT_BOARD_ITEM);
             CompoundTag tag = board.saveWithoutMetadata();
             if (!tag.isEmpty()) {
                 stack.addTagElement("BlockEntityTag", tag);
@@ -110,7 +109,7 @@ public class ContractBoardBlock extends BaseEntityBlock {
         ItemStack stack = player.getItemInHand(hand);
         boolean isTicket = stack.getItem() instanceof ContractTicketItem;
         boolean isSealedBox = !isTicket
-                && stack.is(FarmersContractsMod.CONTRACT_BOX_ITEM.get())
+                && stack.is(FarmersContractsMod.CONTRACT_BOX_ITEM)
                 && ContractBoxBlockEntity.sealedContractOf(stack) != null;
 
         if ((isTicket && Config.deliveryMode() != Config.DeliveryMode.BOX_ONLY)
@@ -216,7 +215,7 @@ public class ContractBoardBlock extends BaseEntityBlock {
         ContractProgress.get(level).incrementCompleted();
 
         ContractScoreboard.awardTierPoints(level, player, contract.rarity());
-        MinecraftForge.EVENT_BUS.post(new ContractFulfilledEvent(player, contract));
+        ContractFulfilledCallback.EVENT.invoker().onContractFulfilled(player, contract);
 
         player.sendSystemMessage(Component.translatable("chat.farmerscontracts.fulfilled", ContractTicketItem.customerName(contract)));
     }

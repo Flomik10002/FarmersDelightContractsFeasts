@@ -17,7 +17,7 @@ public class VillagerBrainProviderMixin {
     private void farmerscontracts$extendMemoryTypes(CallbackInfoReturnable<Brain.Provider<Villager>> cir) {
         ImmutableList<MemoryModuleType<?>> extended = ImmutableList.<MemoryModuleType<?>>builder()
                 .addAll(VillagerMemoryAccessor.farmerscontracts$memoryTypes())
-                .add(ContractVillagerMemories.NEAREST_BOARD.get())
+                .add(ContractVillagerMemories.NEAREST_BOARD)
                 .build();
         cir.setReturnValue(Brain.provider(extended, VillagerMemoryAccessor.farmerscontracts$sensorTypes()));
     }

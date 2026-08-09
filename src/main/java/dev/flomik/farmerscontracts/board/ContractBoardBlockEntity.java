@@ -56,7 +56,7 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
     private final BoardState localState = new BoardState();
 
     public ContractBoardBlockEntity(BlockPos pos, BlockState state) {
-        super(FarmersContractsMod.CONTRACT_BOARD_ENTITY.get(), pos, state);
+        super(FarmersContractsMod.CONTRACT_BOARD_ENTITY, pos, state);
     }
 
     private BoardState activeState(ServerLevel level) {
@@ -191,7 +191,7 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
             return false;
         }
 
-        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET.get());
+        ItemStack ticket = new ItemStack(FarmersContractsMod.CONTRACT_TICKET);
         ContractTicketItem.setData(ticket, generated.get());
         state.container.setItem(slot, ticket);
         state.slotTimestamps.put(slot, level.getGameTime());
@@ -239,12 +239,12 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         AABB area = AABB.ofSize(Vec3.atCenterOf(pos),
                 VILLAGER_SEARCH_RADIUS * 2, VILLAGER_SEARCH_RADIUS * 2, VILLAGER_SEARCH_RADIUS * 2);
         List<Villager> candidates = level.getEntitiesOfClass(Villager.class, area,
-                v -> !v.getBrain().hasMemoryValue(ContractVillagerMemories.NEAREST_BOARD.get()));
+                v -> !v.getBrain().hasMemoryValue(ContractVillagerMemories.NEAREST_BOARD));
         if (candidates.isEmpty()) {
             return;
         }
         Villager chosen = candidates.get(level.getRandom().nextInt(candidates.size()));
-        chosen.getBrain().setMemory(ContractVillagerMemories.NEAREST_BOARD.get(), pos.immutable());
+        chosen.getBrain().setMemory(ContractVillagerMemories.NEAREST_BOARD, pos.immutable());
     }
 
     private static ResourceLocation pickWeightedCustomer(RandomSource random) {
