@@ -1,11 +1,14 @@
 package dev.flomik.farmerscontracts.client;
 
+import dev.flomik.farmerscontracts.FarmersContractsMod;
 import net.fabricmc.api.ClientModInitializer;
+import net.minecraft.client.gui.screens.MenuScreens;
 
-// Fabric client entrypoint (see fabric.mod.json "entrypoints.client"). Screen/menu-type
-// registration ports here once the board/box menus are ported (see project task list).
 public class FarmersContractsClientMod implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        MenuScreens.register(FarmersContractsMod.CONTRACT_BOARD_MENU, ContractBoardScreen::new);
+        MenuScreens.register(FarmersContractsMod.CONTRACT_BOX_MENU, ContractBoxScreen::new);
+        ClientSetup.registerItemProperties();
     }
 }

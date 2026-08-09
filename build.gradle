@@ -6,6 +6,24 @@ plugins {
 version = mod_version
 group = mod_group_id
 
+loom {
+    runs {
+        // Headless regression checks (board/box/api - see board.SelfTest), same gating pattern
+        // as the neoforge/1.21.1 and forge/1.20.1 branches' `runSelfTest` task.
+        selfTest {
+            server()
+            name 'Self Test'
+            vmArgs('-Dfarmerscontracts.selftest=true')
+        }
+        // Economy balance-tuning dump (see contract.BalanceCheck).
+        balance {
+            server()
+            name 'Balance Check'
+            vmArgs('-Dfarmerscontracts.balance=true')
+        }
+    }
+}
+
 base {
     archivesName = mod_id
 }
