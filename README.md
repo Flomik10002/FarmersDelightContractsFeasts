@@ -1,6 +1,6 @@
 # Farmer's Delight: Contracts & Feasts
 
-**Requires [Farmer's Delight](https://www.curseforge.com/minecraft/mc-mods/farmers-delight-refabricated) (NeoForge, 1.21.1).**
+**Requires [Farmer's Delight Refabricated](https://modrinth.com/mod/farmers-delight-refabricated) 1.21.1-3.0.0+, Fabric Loader 0.19.2+ and Fabric API — Fabric, Minecraft 1.21.1.**
 
 ## About
 
@@ -17,6 +17,17 @@ Place a Contract Board, take an order from a customer, cook what they actually a
 • **Generates in every village** — a small board stand spawns as a genuine extra building next to the town center, its wood (and stone, in deserts) automatically matching the village's biome.<br>
 • **Villagers visit on their own time** — idle villagers occasionally wander over to check the board, purely for atmosphere.<br>
 • **Addon-friendly by design** — objectives are built from data tags and Farmer's Delight's own semantic tags (`meals`, `snacks`, `sweets`, `drinks`), so compatible food mods slot in without any extra configuration.
+
+## Builds
+
+The same mod and the same feature set on every supported loader; each lives on its own branch.
+
+| Loader | Minecraft | Branch | Dependency |
+| --- | --- | --- | --- |
+| NeoForge | 1.21.1 | `neoforge/1.21.1` | [Farmer's Delight](https://www.curseforge.com/minecraft/mc-mods/farmers-delight) 1.2.4+ |
+| Forge | 1.20.1 | `forge/1.20.1` | [Farmer's Delight](https://www.curseforge.com/minecraft/mc-mods/farmers-delight) 1.20.1-1.3+ |
+| Fabric *(this branch)* | 1.21.1 | `fabric/1.21.1` | [Farmer's Delight Refabricated](https://modrinth.com/mod/farmers-delight-refabricated) 1.21.1-3.0.0+ |
+| Fabric | 1.20.1 | `fabric/1.20.1` | [Farmer's Delight Refabricated](https://modrinth.com/mod/farmers-delight-refabricated) 1.20.1-2.0.0+ |
 
 ## Balance tooling
 
