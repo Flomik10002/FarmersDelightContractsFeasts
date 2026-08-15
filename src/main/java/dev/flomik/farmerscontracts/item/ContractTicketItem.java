@@ -11,7 +11,6 @@ import net.minecraft.world.item.TooltipFlag;
 import java.util.List;
 
 public class ContractTicketItem extends Item {
-
     public ContractTicketItem(Properties properties) {
         super(properties.stacksTo(1).fireResistant());
     }

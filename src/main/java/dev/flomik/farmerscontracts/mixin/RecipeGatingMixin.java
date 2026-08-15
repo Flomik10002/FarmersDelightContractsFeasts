@@ -22,13 +22,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 
-// See RecipeGating for why this exists (Fabric has no equivalent of NeoForge's datapack-level
-// recipe conditions). Runs once per resource reload, right after RecipeManager has finished
-// building its (immutable) byType/byName maps - strips out any gated recipe whose config
-// condition is currently false, rebuilding both maps without it.
 @Mixin(RecipeManager.class)
 public abstract class RecipeGatingMixin {
-
     @Shadow
     private Multimap<RecipeType<?>, RecipeHolder<?>> byType;
 

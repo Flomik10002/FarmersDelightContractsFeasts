@@ -11,7 +11,6 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 public class ContractBoardMenu extends AbstractContainerMenu {
-
     private final Container container;
     private final int rows;
     private final ContainerLevelAccess access;
@@ -53,9 +52,6 @@ public class ContractBoardMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        // SimpleContainer/MaskedBoardContainer.stillValid() is unconditionally true - it has no
-        // notion of world position. Without this, the GUI would never auto-close even after the
-        // player walks away or the board block is broken while the menu is still open.
         return stillValid(access, player, FarmersContractsMod.CONTRACT_BOARD);
     }
 
@@ -74,10 +70,6 @@ public class ContractBoardMenu extends AbstractContainerMenu {
         ItemStack result = visible.copy();
 
         if (index < boardSlots) {
-            // slot.getItem() here is the live reference into the shared board container, not a
-            // per-player masked copy - moveItemStackTo mutates its argument in place, so it must
-            // never be handed the live reference directly, or a shift-click would shrink the
-            // shared contract for every viewer instead of just marking it taken for this player.
             ItemStack moving = visible.copy();
             if (!this.moveItemStackTo(moving, boardSlots, this.slots.size(), true)) {
                 return ItemStack.EMPTY;

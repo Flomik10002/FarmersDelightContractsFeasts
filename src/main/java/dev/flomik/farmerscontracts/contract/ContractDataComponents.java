@@ -9,7 +9,6 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 
 public final class ContractDataComponents {
-
     private ContractDataComponents() {
     }
 
@@ -20,8 +19,6 @@ public final class ContractDataComponents {
                     .networkSynchronized(GeneratedContract.STREAM_CODEC)
                     .build());
 
-    // Server-only bookkeeping for ContractBoardBlockEntity's refresh cycle (last update time,
-    // per-slot age timestamps) - no network sync needed, clients never need to render this.
     public static final DataComponentType<BoardRefreshState> BOARD_STATE = register(
             "board_state",
             DataComponentType.<BoardRefreshState>builder()

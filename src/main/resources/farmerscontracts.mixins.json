@@ -8,7 +8,11 @@
     "VillagerMemoryAccessor",
     "VillagerBrainProviderMixin",
     "VillageBoardLimitMixin",
-    "RecipeGatingMixin"
+    "RecipeGatingMixin",
+    "ContainerSlotInsertMixin",
+    "HopperInsertMixin",
+    "InventoryStorageAccessor",
+    "InventorySlotWrapperInsertMixin"
   ],
   "injectors": {
     "defaultRequire": 1

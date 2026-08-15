@@ -12,11 +12,6 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-// Fabric has no equivalent of NeoForge's ModConfigSpec, so this is a small hand-rolled JSON
-// config carrying the same 4 options as the NeoForge/Forge branches. Loaded once at startup
-// (see FarmersContractsMod#onInitialize); values are cached in static fields and re-saved
-// whenever the file is missing/incomplete, so adding a new option later doesn't require players
-// to delete their config.
 public final class Config {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -28,20 +23,12 @@ public final class Config {
     }
 
     private static final class Data {
-        // How contracts may be turned in.
-        // TICKET_ONLY: turn in a Contract Ticket directly at the Contract Board using items from
-        // the player's inventory. The Contract Box recipe/item is disabled entirely.
-        // BOX_ONLY: fill a Contract Box, seal it with the ticket, then deliver the sealed box to
-        // the Contract Board. Turning in a ticket straight from inventory is disabled.
         DeliveryMode deliveryMode = DeliveryMode.BOX_ONLY;
-        // How often (in real seconds) the Contract Board attempts to refill/rotate its offers.
-        // Matches Bountiful's default (45).
+
         int boardUpdateFrequencySeconds = 45;
-        // Whether players are allowed to break the Contract Board at all.
+
         boolean boardCanBreak = true;
-        // If true, every Contract Board on the server shares one pool of offers/timers
-        // (GlobalBoardData) instead of each board keeping its own independent state. Matches
-        // Bountiful's board.globalBoardState default (false).
+
         boolean boardGlobalState = false;
     }
 
@@ -91,13 +78,10 @@ public final class Config {
         return data.boardGlobalState;
     }
 
-    // Test-only hook (SelfTest) to exercise both delivery-mode branches without a real config
-    // file/restart.
     public static void setDeliveryModeForTest(DeliveryMode mode) {
         data.deliveryMode = mode;
     }
 
-    // Test-only hook (SelfTest), same rationale as setDeliveryModeForTest.
     public static void setBoardGlobalStateForTest(boolean value) {
         data.boardGlobalState = value;
     }

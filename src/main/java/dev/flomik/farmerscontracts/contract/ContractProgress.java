@@ -6,11 +6,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 
 public class ContractProgress extends SavedData {
-
     private static final String KEY = "farmerscontracts_progress";
-    // Vanilla's SavedData.Factory canonical constructor also takes a DataFixTypes for old-save
-    // upgrades (NeoForge patches in a 2-arg convenience overload that defaults it to null) -
-    // this mod's own save format has no legacy versions to fix up, so null is correct here too.
+
     private static final SavedData.Factory<ContractProgress> FACTORY =
             new SavedData.Factory<ContractProgress>(ContractProgress::new, ContractProgress::load, null);
 

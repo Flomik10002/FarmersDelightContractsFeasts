@@ -4,17 +4,31 @@ import dev.flomik.farmerscontracts.client.ClientSetup;
 import dev.flomik.farmerscontracts.contract.ContractDataComponents;
 import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.block.Block;
 
 import java.util.List;
 
 public class ContractBoxItem extends BlockItem {
-
     public ContractBoxItem(Block block, Properties properties) {
         super(block, properties);
+    }
+
+    @Override
+    public boolean canFitInsideContainerItems() {
+        return false;
+    }
+
+    public static boolean isFilledContractBox(ItemStack stack) {
+        if (!(stack.getItem() instanceof ContractBoxItem)) {
+            return false;
+        }
+        ItemContainerContents contents = stack.get(DataComponents.CONTAINER);
+        return contents != null && contents.nonEmptyStream().findAny().isPresent();
     }
 
     @Override
@@ -33,9 +47,7 @@ public class ContractBoxItem extends BlockItem {
         if (data == null) {
             return;
         }
-        // A sealed box's contents are guaranteed to exactly match the order (see
-        // ContractBoxBlock.trySeal) - its tooltip is the ticket's tooltip with every line already
-        // shown as fulfilled (N/N), not recomputed from anything.
+
         ContractTooltips.appendContractTooltip(data, ClientSetup.currentPlayer(), tooltip, true);
     }
 }

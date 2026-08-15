@@ -9,7 +9,6 @@ import net.minecraft.network.codec.StreamCodec;
 import java.util.List;
 
 public record RewardBundle(List<GeneratedLine> items, int xp) {
-
     public static final Codec<RewardBundle> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             GeneratedLine.CODEC.listOf().fieldOf("items").forGetter(RewardBundle::items),
             Codec.INT.fieldOf("xp").forGetter(RewardBundle::xp)

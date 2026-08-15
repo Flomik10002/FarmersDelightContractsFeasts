@@ -7,11 +7,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
-// No custom GUI art shipped for the box (only block/item textures) - the 5-slot single-row
-// layout matches vanilla's hopper exactly, so reuse its background, same as vanilla's own
-// HopperScreen does.
 public class ContractBoxScreen extends AbstractContainerScreen<ContractBoxMenu> {
-
     private static final ResourceLocation TEXTURE =
             ResourceLocation.withDefaultNamespace("textures/gui/container/hopper.png");
 

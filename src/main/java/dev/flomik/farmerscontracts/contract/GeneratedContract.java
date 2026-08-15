@@ -17,7 +17,6 @@ public record GeneratedContract(
         RewardBundle rewardBundle,
         long expiresAtGameTime
 ) {
-
     public static final Codec<GeneratedContract> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ResourceLocation.CODEC.fieldOf("customer_id").forGetter(GeneratedContract::customerId),
             Codec.STRING.fieldOf("customer_name").forGetter(GeneratedContract::customerName),

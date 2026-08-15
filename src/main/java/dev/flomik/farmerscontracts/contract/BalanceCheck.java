@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class BalanceCheck {
-
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final int TRIALS = 10_000;
 

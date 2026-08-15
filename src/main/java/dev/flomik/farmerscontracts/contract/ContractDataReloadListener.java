@@ -19,7 +19,6 @@ import java.util.Map;
 
 public class ContractDataReloadListener extends SimplePreparableReloadListener<ContractDataReloadListener.LoadedData>
         implements IdentifiableResourceReloadListener {
-
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Gson GSON = new Gson();
     private static final ResourceLocation ID =

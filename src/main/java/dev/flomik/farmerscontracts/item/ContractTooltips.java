@@ -10,12 +10,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
-// Shared by ContractTicketItem/ContractBoxItem's appendHoverText overrides. Pure vanilla logic,
-// no client-only dependency - callers decide whether/how to obtain a Player to compute live
-// "have X of Y" progress (see ClientSetup#currentPlayer, appendHoverText only ever runs
-// client-side, so Minecraft.getInstance() is safe to touch there but not here).
 public final class ContractTooltips {
-
     private ContractTooltips() {
     }
 

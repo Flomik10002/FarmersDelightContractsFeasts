@@ -27,28 +27,8 @@ import java.lang.reflect.Field;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-// Caps how many Contract Boards can spawn in a single village. VillagePoolInjector adds the board
-// into the same village/<type>/houses pool vanilla draws regular houses from (weight 1), which is
-// enough to make it appear with correctly-vanilla rotation/placement, but a village can have many
-// house connector slots, so without a cap the same weighted roll can independently succeed more
-// than once per village.
-//
-// Bountiful solves the identical problem with a Mixin into JigsawPlacement$Placer#tryPlacingChildren
-// (filtering the per-connector candidate list live, see docs/village-board-spawn.md) - that
-// specific injection point doesn't exist in our version (their target method
-// StructureTemplate$JigsawBlockInfo#placementPriority() is a later Mojang refactor not present in
-// 1.21.1's decompiled source). This achieves the same outcome more simply and without depending on
-// exact internal bytecode shape: JigsawPlacement.addPieces's returned GenerationStub wraps a
-// Consumer<StructurePiecesBuilder> that vanilla eventually calls with the real builder - we hand it
-// a thin proxy that forwards every piece except board pieces past the first, so the real builder
-// (and everything that inspects it afterward) never sees the extras. Verified safe: within this
-// consumer, JigsawPlacement's own piece-adding loop only ever calls builder.addPiece(...) (see
-// list.forEach(builder::addPiece) in JigsawPlacement#addPieces) - none of StructurePiecesBuilder's
-// other methods (findCollisionPiece, getBoundingBox, etc.) are touched during this call, so the
-// proxy not tracking its own copy of already-added pieces is not a correctness issue.
 @Mixin(JigsawPlacement.class)
 public class VillageBoardLimitMixin {
-
     private static final int MAX_BOARDS_PER_VILLAGE = 1;
 
     @Inject(method = "addPieces", at = @At("RETURN"), cancellable = true)

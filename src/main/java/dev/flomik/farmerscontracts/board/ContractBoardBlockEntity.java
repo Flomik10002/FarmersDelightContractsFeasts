@@ -41,23 +41,16 @@ import java.util.Optional;
 import java.util.Set;
 
 public class ContractBoardBlockEntity extends BlockEntity implements MenuProvider {
-
     public static final int ROWS = 2;
     public static final int SLOTS = ROWS * 9;
     private static final long VILLAGER_CHECK_INTERVAL_TICKS = 600L;
     private static final double VILLAGER_SEARCH_RADIUS = 24.0;
 
-    // Refresh model ported 1:1 from Bountiful's BoardBlockEntity.kt (reference/Bountiful), scaled
-    // from their 21-slot board (prune at >=12 taken, extra fill at >=18 free) to our 18 slots -
-    // see docs/board-lifecycle-audit.md for the full comparison and the scaling math.
     private static final int PRUNE_TAKEN_THRESHOLD = 10;
     private static final int EXTRA_FILL_FREE_THRESHOLD = 15;
     private static final int[] PRUNE_COUNT_WEIGHTS = {1, 1, 1, 1, 2, 2, 2};
     private static final long EXPIRY_CHECK_INTERVAL_TICKS = 100L;
 
-    // Per-block state, used whenever Config.boardGlobalState() is false (the default). When true,
-    // every board on the server instead shares GlobalBoardData.get(level).state - see
-    // activeState(ServerLevel), mirroring Bountiful's own localState/GlobalBoardData split.
     private final BoardState localState = new BoardState();
 
     public ContractBoardBlockEntity(BlockPos pos, BlockState state) {
@@ -75,9 +68,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         setChanged();
     }
 
-    // Server-only accessor (menu creation, SelfTest) - falls back to local state if this block
-    // entity isn't attached to a real ServerLevel yet (e.g. a bare instance built directly in a
-    // test without being placed), since there is nothing meaningful to look up global state with.
     public SimpleContainer container() {
         Level level = this.getLevel();
         if (Config.boardGlobalState() && level instanceof ServerLevel serverLevel) {
@@ -86,9 +76,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         return localState.container;
     }
 
-    // Test-only hook (SelfTest) to simulate a block entity whose chunk was unloaded for a long
-    // time, without needing to actually fast-forward the server's real gameTime. Always targets
-    // localState directly since tests construct bare entities without a real ServerLevel attached.
     public void forceLastUpdateGameTimeForTest(long gameTime) {
         localState.lastUpdateGameTime = gameTime;
     }
@@ -152,9 +139,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         return count;
     }
 
-    // Ported 1:1 from Bountiful's BoardBlockEntity.randomlyUpdateBoard(): prune (if overfull),
-    // then fill one free slot, then fill a second one if still very empty afterward. Thresholds
-    // scaled from their 21-slot board to our 18 (see PRUNE_TAKEN_THRESHOLD/EXTRA_FILL_FREE_THRESHOLD).
     private void refillCycle(ServerLevel level, BoardState state) {
         if (takenSlotCount(state) >= PRUNE_TAKEN_THRESHOLD) {
             int pruneCount = PRUNE_COUNT_WEIGHTS[level.getRandom().nextInt(PRUNE_COUNT_WEIGHTS.length)];
@@ -204,9 +188,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         return true;
     }
 
-    // Bountiful's weightedBountySlot(): weight = how long a slot has sat on the board (age), not
-    // how close its contract is to expiring - the older an offer, the more likely it gets
-    // rotated out to make room for something new.
     private static Integer pickAgeWeightedEviction(ServerLevel level, BoardState state) {
         long now = level.getGameTime();
         List<Integer> slots = new ArrayList<>();
@@ -271,21 +252,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         return List.copyOf(customers.keySet()).get(customers.size() - 1);
     }
 
-    // Without this, breaking the board and placing a new one at the same position comes back
-    // completely empty (and, now that refresh timing lives on the block entity too, resets
-    // lastUpdateGameTime/slotTimestamps back to nothing, which would look like an instant reroll
-    // exploit). Carrying the container's contents AND the refresh bookkeeping onto the dropped
-    // item (and restoring them on placement) makes break+replace a no-op instead - exactly
-    // Bountiful's own getDrops/setPlacedBy pattern (their local-mode board copies its ENTIRE NBT
-    // onto the item; ours is the typed-component equivalent, split across DataComponents.CONTAINER
-    // for the items and ContractDataComponents.BOARD_STATE for everything else).
-    //
-    // In global mode there is nothing local worth carrying at all - EVERY board already reflects
-    // the same shared truth regardless of which physical block you break, and restoring a
-    // break-time snapshot onto that shared state on placement would let breaking+replacing any
-    // single board stomp the whole server's offers. So these skip entirely when
-    // Config.boardGlobalState() is on, mirroring how Bountiful's saveCustomOnly() ends up empty
-    // in global mode (their saveAdditional only writes localState when !isGlobalMode).
     @Override
     protected void collectImplicitComponents(DataComponentMap.Builder builder) {
         super.collectImplicitComponents(builder);
@@ -340,10 +306,7 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        // Only persist local state when it's actually the active one - matches Bountiful's own
-        // saveAdditional (if (!isGlobalMode) localState.saveTo(output)). loadAdditional below
-        // still always loads it unconditionally, so toggling global mode back off later doesn't
-        // lose whatever was last saved locally.
+
         if (!Config.boardGlobalState()) {
             localState.saveTo(tag, registries);
         }
@@ -355,9 +318,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         localState.loadFrom(tag, registries);
     }
 
-    // If the board has never been used before (pristine - matches Bountiful's isPristine/
-    // upkeepTryInitialPopulation), seed it with a handful of refresh cycles right away instead of
-    // waiting a full updateFrequencySeconds for the first offer to appear.
     private void upkeepTryInitialPopulation(ServerLevel level, BoardState state) {
         if (state.initialized) {
             return;
@@ -370,10 +330,6 @@ public class ContractBoardBlockEntity extends BlockEntity implements MenuProvide
         markDirty(level);
     }
 
-    // Refresh cadence ported 1:1 from Bountiful's BoardBlockEntity.upkeepBountyGeneration(): real
-    // seconds elapsed (via getGameTime(), immune to /time set/add, which only ever touch
-    // getDayTime()), with catch-up if the block entity's chunk was unloaded for a while, capped at
-    // SLOTS so a very long absence can't dump dozens of refill cycles on the board at once.
     public static void tick(Level level, BlockPos pos, BlockState state, ContractBoardBlockEntity entity) {
         if (level.isClientSide || !(level instanceof ServerLevel serverLevel)) {
             return;

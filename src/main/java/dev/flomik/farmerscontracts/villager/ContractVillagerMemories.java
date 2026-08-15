@@ -10,7 +10,6 @@ import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import java.util.Optional;
 
 public final class ContractVillagerMemories {
-
     public static final MemoryModuleType<BlockPos> NEAREST_BOARD = Registry.register(
             BuiltInRegistries.MEMORY_MODULE_TYPE,
             ResourceLocation.fromNamespaceAndPath(FarmersContractsMod.MODID, "nearest_contract_board"),
