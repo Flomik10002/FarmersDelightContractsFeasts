@@ -39,17 +39,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ContractBoardBlock extends BaseEntityBlock {
-
-    // Explosion resistance matches Bountiful's board exactly (BoardBlock.kt:
-    // destroyTime(3f).explosionResistance(3600000f), the same figure vanilla uses for bedrock/
-    // portal frames) - the board survives TNT/creepers even though it can still be mined normally.
-    // destroyTime kept at our own value (2.5) rather than copying theirs 1:1.
     public ContractBoardBlock(Properties properties) {
         super(properties.sound(SoundType.WOOD).strength(2.5F, 3_600_000F));
     }
 
-    // Refuse to even start breaking the block if the config disallows it - ported from
-    // Bountiful's BoardBlock.getDestroyProgress (config board.canBreak).
     @Override
     protected float getDestroyProgress(BlockState state, Player player, BlockGetter level, BlockPos pos) {
         if (!Config.boardCanBreak()) {
@@ -137,8 +130,6 @@ public class ContractBoardBlock extends BaseEntityBlock {
         return InteractionResult.CONSUME;
     }
 
-    // Package-private (not private) so SelfTest can exercise it directly without going through
-    // the full block-interaction/BlockHitResult plumbing.
     boolean tryTurnIn(ServerLevel level, ServerPlayer player, ItemStack ticket) {
         GeneratedContract contract = ticket.get(ContractDataComponents.CONTRACT_DATA.get());
         if (contract == null) {
@@ -151,12 +142,6 @@ public class ContractBoardBlock extends BaseEntityBlock {
             return true;
         }
 
-        // Merge by item first: ContractGenerator can legitimately produce two objective lines
-        // for the same item (e.g. once a pool's "unused item" pick is exhausted, it falls back to
-        // reusing one already picked). Checking/consuming raw per-line amounts against the
-        // player's inventory independently would under-count the real total needed - e.g. two
-        // lines of 5 and 3 wheat would each individually pass with only 5 wheat on hand instead
-        // of requiring 8, and consumption would then silently come up short on the second line.
         List<GeneratedLine> objectives = GeneratedLine.mergeByItem(contract.objectives());
 
         List<GeneratedLine> missing = new ArrayList<>();
@@ -176,19 +161,11 @@ public class ContractBoardBlock extends BaseEntityBlock {
             consumeMatching(player, objective.stack().getItem(), objective.amount());
         }
 
-        // Grant rewards before shrinking the ticket to empty, not after - once the ticket stack
-        // hits count 0, giveOrDrop()'s player.addItem() may treat the (now nominally empty) held
-        // stack's slot as free and place a reward straight into it, silently overwriting what
-        // should have been a consumed/empty hand.
         finalizeCompletion(level, player, contract);
         ticket.shrink(1);
         return true;
     }
 
-    // Package-private (not private) so SelfTest can exercise it directly. Delivering a sealed
-    // Contract Box (see dev.flomik.farmerscontracts.box) needs no inventory check here - the box
-    // already validated and consumed its contents when it was sealed (ContractBoxBlock.trySeal);
-    // carrying its CONTRACT_DATA component to the board is proof enough.
     boolean tryDeliverBox(ServerLevel level, ServerPlayer player, ItemStack box) {
         GeneratedContract contract = box.get(ContractDataComponents.CONTRACT_DATA.get());
         if (contract == null) {
@@ -201,15 +178,11 @@ public class ContractBoardBlock extends BaseEntityBlock {
             return true;
         }
 
-        // See tryTurnIn's comment: rewards must be granted before the consumed stack is shrunk
-        // to empty, or giveOrDrop() may place a reward straight into the now-"free" hand slot.
         finalizeCompletion(level, player, contract);
         box.shrink(1);
         return true;
     }
 
-    // Shared by both turn-in paths (ticket and sealed box) so reward granting, progress
-    // tracking, and mod-integration hooks (scoreboard/event) never drift between them.
     private static void finalizeCompletion(ServerLevel level, ServerPlayer player, GeneratedContract contract) {
         for (GeneratedLine reward : contract.rewards()) {
             giveOrDrop(level, player, reward.stack().copyWithCount(reward.amount()));

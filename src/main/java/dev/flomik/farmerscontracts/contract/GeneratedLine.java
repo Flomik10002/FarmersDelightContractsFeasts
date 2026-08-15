@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 public record GeneratedLine(ItemStack stack, int amount, double worth) {
-
     public static final Codec<GeneratedLine> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             ItemStack.CODEC.fieldOf("stack").forGetter(GeneratedLine::stack),
             Codec.INT.fieldOf("amount").forGetter(GeneratedLine::amount),

@@ -7,7 +7,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 public class ContractTicketItem extends Item {
-
     public ContractTicketItem(Properties properties) {
         super(properties.stacksTo(1).fireResistant());
     }

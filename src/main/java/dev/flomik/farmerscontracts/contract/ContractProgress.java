@@ -6,7 +6,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 
 public class ContractProgress extends SavedData {
-
     private static final String KEY = "farmerscontracts_progress";
     private static final SavedData.Factory<ContractProgress> FACTORY =
             new SavedData.Factory<>(ContractProgress::new, ContractProgress::load);

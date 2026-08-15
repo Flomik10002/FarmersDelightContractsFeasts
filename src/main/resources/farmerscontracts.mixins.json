@@ -7,7 +7,12 @@
     "VillagerIdleMixin",
     "VillagerMemoryAccessor",
     "VillagerBrainProviderMixin",
-    "VillageBoardLimitMixin"
+    "VillageBoardLimitMixin",
+    "ContainerSlotInsertMixin",
+    "HopperInsertMixin",
+    "InvWrapperInsertMixin",
+    "SidedInvWrapperInsertMixin",
+    "ItemStackHandlerInsertMixin"
   ],
   "injectors": {
     "defaultRequire": 1

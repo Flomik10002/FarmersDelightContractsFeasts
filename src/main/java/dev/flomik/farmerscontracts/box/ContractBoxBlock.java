@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Set;
 
 public class ContractBoxBlock extends BaseEntityBlock {
-
     public static final BooleanProperty SEALED = BooleanProperty.create("sealed");
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     private static final VoxelShape SHAPE = Block.box(3.5, 0, 3.5, 12.5, 9, 12.5);
@@ -151,8 +150,6 @@ public class ContractBoxBlock extends BaseEntityBlock {
         return InteractionResult.CONSUME;
     }
 
-    // Public (not package-private, unlike ContractBoardBlock.tryTurnIn) so SelfTest - which lives
-    // in dev.flomik.farmerscontracts.board, not this package - can exercise it directly.
     public boolean trySeal(ServerLevel level, ServerPlayer player, BlockPos pos, ItemStack ticket) {
         if (!(level.getBlockEntity(pos) instanceof ContractBoxBlockEntity box)) {
             return false;
@@ -169,13 +166,8 @@ public class ContractBoxBlock extends BaseEntityBlock {
             return true;
         }
 
-        // See ContractBoardBlock.tryTurnIn for why objectives are merged by item first.
         List<GeneratedLine> objectives = GeneratedLine.mergeByItem(contract.objectives());
 
-        // The ticket is proof that the box's contents are exactly this order, nothing else - so
-        // any item that isn't part of the order at all, or an amount that's off in either
-        // direction, fails the seal (docs/contract_box.md: "все предметы внутри соответствуют
-        // ТОЛЬКО этому заказу").
         Set<Item> allowedItems = new HashSet<>();
         for (GeneratedLine objective : objectives) {
             allowedItems.add(objective.stack().getItem());

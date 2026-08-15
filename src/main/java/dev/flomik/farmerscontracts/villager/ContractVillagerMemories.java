@@ -10,7 +10,6 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import java.util.Optional;
 
 public final class ContractVillagerMemories {
-
     public static final DeferredRegister<MemoryModuleType<?>> MEMORY_MODULE_TYPES =
             DeferredRegister.create(Registries.MEMORY_MODULE_TYPE, FarmersContractsMod.MODID);
 

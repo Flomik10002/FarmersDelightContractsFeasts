@@ -5,14 +5,7 @@ import dev.flomik.farmerscontracts.contract.GeneratedContract;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.Event;
 
-/**
- * Fired on {@link net.neoforged.neoforge.common.NeoForge#EVENT_BUS} whenever a player
- * successfully turns in a contract (ticket or sealed box), after rewards/XP have already
- * been granted. Purely a notification - not cancellable - intended for other mods that want
- * to react to contract completions (e.g. award their own currency/leveling points).
- */
 public class ContractFulfilledEvent extends Event {
-
     private final ServerPlayer player;
     private final GeneratedContract contract;
 

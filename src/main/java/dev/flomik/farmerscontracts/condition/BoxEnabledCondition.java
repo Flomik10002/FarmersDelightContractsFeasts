@@ -4,10 +4,7 @@ import com.mojang.serialization.MapCodec;
 import dev.flomik.farmerscontracts.Config;
 import net.neoforged.neoforge.common.conditions.ICondition;
 
-// Data-driven gate for the Contract Box recipe: in TICKET_ONLY delivery mode the box can't be
-// crafted at all (see Config.DeliveryMode, docs/contract_box.md).
 public record BoxEnabledCondition() implements ICondition {
-
     public static final MapCodec<BoxEnabledCondition> CODEC = MapCodec.unit(BoxEnabledCondition::new);
 
     @Override

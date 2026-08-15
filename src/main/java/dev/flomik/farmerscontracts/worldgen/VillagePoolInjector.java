@@ -15,29 +15,9 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
-// Injects the Contract Board directly into vanilla's own village jigsaw pools
-// (minecraft:village/<type>/houses) at server start, instead of hand-computing offset/rotation/
-// height the way the old VillageBoardMixin did. Mirrors exactly how Bountiful adds its own
-// bounty_gazebo (BountifulSharedApi.kt, Kambrik.Structure.addToStructurePool): once our piece is a
-// first-class candidate in the SAME pool vanilla draws houses from, vanilla's own jigsaw placer
-// handles rotation/connection/collision correctly for free - no more crooked/backwards spawns.
-//
-// StructureTemplatePool.templates (private, ObjectArrayList<StructurePoolElement>) is the actual
-// list getRandomTemplate()/getShuffledTemplates() draw from - rawTemplates (the codec-facing
-// field) is NOT consulted for placement, only for re-serialization, so mutating templates alone
-// is sufficient. This is a plain reflective mutation of a live mutable list, not bytecode
-// patching - safe post-registry-freeze since the pool OBJECT itself is still a normal mutable
-// Java object, only the registry's id->object MAPPING is frozen.
-//
-// Requires each injected structure's NBT to carry its own jigsaw connector block (see
-// docs/village-board-spawn.md for the exact block-entity values) - without one, vanilla's jigsaw
-// placer has no attachment point to align against and will simply never pick the candidate.
 public final class VillagePoolInjector {
-
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    // Village type -> dedicated hand-built structure variant, each already built with the
-    // correct materials for that village - no runtime block substitution needed or wanted.
     private static final Map<String, String> VILLAGE_TYPE_TO_STRUCTURE = Map.of(
             "plains", "plains_board",
             "desert", "sand_board",
@@ -66,17 +46,6 @@ public final class VillagePoolInjector {
             return;
         }
 
-        // RIGID, not TERRAIN_MATCHING: tried TERRAIN_MATCHING first (see git history/docs), but
-        // its GravityProcessor moves EVERY block of the structure independently, based on the
-        // terrain height under that block's own x/z column (GravityProcessor#processBlock:
-        // i = level.getHeight(...) + offset, applied per block) - fine for a single floating
-        // decoration, but it tears a rigid multi-block structure (walls/roof/jigsaw frame) apart
-        // on anything but dead-flat ground, since different parts of the same structure get
-        // shifted to different heights. Vanilla's own house pool pieces all use RIGID for exactly
-        // this reason - the whole piece is placed as one unit at a single computed height (from
-        // the connecting jigsaw + the piece's own ground level delta), not gravity-adjusted block
-        // by block. Same as vanilla, minor clipping/gaps on sloped terrain are an accepted
-        // imperfection (regular village houses aren't perfectly terrain-fitted either).
         Holder<StructureProcessorList> emptyProcessors = registryAccess.registryOrThrow(Registries.PROCESSOR_LIST)
                 .getHolderOrThrow(ResourceKey.create(Registries.PROCESSOR_LIST, ResourceLocation.withDefaultNamespace("empty")));
         StructurePoolElement element = StructurePoolElement

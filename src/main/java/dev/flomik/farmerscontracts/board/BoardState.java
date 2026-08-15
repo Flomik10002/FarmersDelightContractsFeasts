@@ -12,13 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-// Everything a Contract Board needs to run its Bountiful-ported refresh cycle, factored out of
-// ContractBoardBlockEntity so the exact same shape can be used either per-block (kept directly on
-// the block entity, the default) or server-wide (GlobalBoardData, config-gated) - mirrors
-// Bountiful's own BoardBlockEntity.localState/GlobalBoardData split (both literally the same
-// Kotlin class there; this is the Java equivalent). See docs/board-lifecycle-audit.md.
 public final class BoardState {
-
     public final SimpleContainer container = new SimpleContainer(ContractBoardBlockEntity.SLOTS);
     public final Map<Integer, Long> slotTimestamps = new HashMap<>();
     public final Map<UUID, Set<Integer>> takenSlots = new HashMap<>();

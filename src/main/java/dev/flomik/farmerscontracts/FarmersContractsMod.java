@@ -8,6 +8,7 @@ import dev.flomik.farmerscontracts.board.ContractBoardMenu;
 import dev.flomik.farmerscontracts.board.SelfTest;
 import dev.flomik.farmerscontracts.box.ContractBoxBlock;
 import dev.flomik.farmerscontracts.box.ContractBoxBlockEntity;
+import dev.flomik.farmerscontracts.box.ContractBoxItemHandler;
 import dev.flomik.farmerscontracts.box.ContractBoxMenu;
 import dev.flomik.farmerscontracts.client.ClientSetup;
 import dev.flomik.farmerscontracts.client.ContractBoardScreen;
@@ -41,6 +42,8 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.conditions.ICondition;
@@ -97,7 +100,7 @@ public class FarmersContractsMod {
                     ContractBoxBlockEntity::new, CONTRACT_BOX.get()).build(null));
     public static final DeferredHolder<MenuType<?>, MenuType<ContractBoxMenu>> CONTRACT_BOX_MENU =
             MENU_TYPES.register("contract_box", () -> IMenuTypeExtension.create(
-                    (windowId, inv, data) -> new ContractBoxMenu(windowId, inv)));
+                    (windowId, inv, data) -> new ContractBoxMenu(windowId, inv, data)));
     public static final DeferredHolder<MapCodec<? extends ICondition>, MapCodec<BoxEnabledCondition>> BOX_ENABLED_CONDITION =
             CONDITION_SERIALIZERS.register("box_enabled", () -> BoxEnabledCondition.CODEC);
     public static final DeferredHolder<MapCodec<? extends ICondition>, MapCodec<BoardCraftableCondition>> BOARD_CRAFTABLE_CONDITION =
@@ -108,9 +111,6 @@ public class FarmersContractsMod {
                     .title(Component.translatable("itemGroup.farmerscontracts"))
                     .icon(() -> CONTRACT_BOARD_ITEM.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
-                        // Unbreakable boards (Config.boardCanBreak() == false, ported from
-                        // Bountiful's board.canBreak) must not be craftable either - see the
-                        // recipe's own "neoforge:conditions" gate and BoardCraftableCondition.
                         if (Config.boardCanBreak()) {
                             output.accept(CONTRACT_BOARD_ITEM.get());
                         }
@@ -133,9 +133,15 @@ public class FarmersContractsMod {
 
         modEventBus.addListener(this::onRegisterMenuScreens);
         modEventBus.addListener(this::onClientSetup);
+        modEventBus.addListener(this::onRegisterCapabilities);
 
         NeoForge.EVENT_BUS.register(this);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    private void onRegisterCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, CONTRACT_BOX_ENTITY.get(),
+                (box, side) -> new ContractBoxItemHandler(box));
     }
 
     private void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
@@ -143,10 +149,6 @@ public class FarmersContractsMod {
         event.register(CONTRACT_BOX_MENU.get(), ContractBoxScreen::new);
     }
 
-    // A sealed box needs to look different in hand/inventory too, not just placed - the item
-    // model system pre-1.21.4 can only pick a model variant off an ItemProperties float, so
-    // register one here and switch on it via an "overrides" entry in the item model json.
-    // The actual registration lives in ClientSetup, not inline here - see that class for why.
     private void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(ClientSetup::registerItemProperties);
     }
@@ -165,8 +167,6 @@ public class FarmersContractsMod {
 
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
-        // Needs a fully-ticking world (chunk loading, block placement) - unlike BalanceCheck,
-        // which is pure data-driven math and runs earlier in onServerStarting.
         if (SelfTest.isRequested()) {
             boolean passed = SelfTest.run(event.getServer());
             LOGGER.info(passed ? "SelfTest passed" : "SelfTest FAILED");
@@ -188,9 +188,7 @@ public class FarmersContractsMod {
     public void onItemTooltip(ItemTooltipEvent event) {
         ItemStack stack = event.getItemStack();
         boolean isTicket = stack.getItem() instanceof ContractTicketItem;
-        // A sealed box's contents are guaranteed to exactly match the order (see
-        // ContractBoxBlock.trySeal) - its tooltip is the ticket's tooltip with every line already
-        // shown as fulfilled (N/N), not recomputed from anything.
+
         boolean isSealedBox = !isTicket && stack.is(CONTRACT_BOX_ITEM.get());
         if (!isTicket && !isSealedBox) {
             return;

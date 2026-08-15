@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ContractDataReloadListener extends SimplePreparableReloadListener<ContractDataReloadListener.LoadedData> {
-
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Gson GSON = new Gson();
 

@@ -6,7 +6,6 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.util.RandomSource;
 
 public record IntRange(int min, int max) {
-
     public IntRange {
         if (min > max) {
             throw new IllegalArgumentException("min (" + min + ") is greater than max (" + max + ")");

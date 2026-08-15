@@ -8,7 +8,6 @@ import vectorwing.farmersdelight.common.Configuration;
 import java.util.Set;
 
 final class FarmersDelightCompat {
-
     private static final Set<String> VANILLA_CROP_CRATES = Set.of(
             "farmersdelight:carrot_crate", "farmersdelight:potato_crate", "farmersdelight:beetroot_crate"
     );
