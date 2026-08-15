@@ -56,9 +56,6 @@ public enum ContractRarity implements StringRepresentable {
         return rewardMultiplier;
     }
 
-    // Mod-integration hook (e.g. external leveling/scoreboard systems): points a completed
-    // contract of this rarity is worth. Explicit per-constant, not derived from ordinal(), so
-    // reordering the enum can never silently change what external mods are paid.
     public int tierPoints() {
         return tierPoints;
     }

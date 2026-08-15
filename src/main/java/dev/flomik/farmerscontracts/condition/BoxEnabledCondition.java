@@ -6,10 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.crafting.conditions.ICondition;
 import net.minecraftforge.common.crafting.conditions.IConditionSerializer;
 
-// Data-driven gate for the Contract Box recipe: in TICKET_ONLY delivery mode the box can't be
-// crafted at all (see Config.DeliveryMode, docs/contract_box.md).
 public class BoxEnabledCondition implements ICondition {
-
     private static final ResourceLocation NAME = new ResourceLocation("farmerscontracts", "box_enabled");
 
     @Override

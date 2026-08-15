@@ -7,7 +7,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 public class ContractTicketItem extends Item {
-
     private static final String CONTRACT_KEY = "Contract";
 
     public ContractTicketItem(Properties properties) {

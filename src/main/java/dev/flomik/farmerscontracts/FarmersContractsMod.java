@@ -93,16 +93,13 @@ public class FarmersContractsMod {
                     ContractBoxBlockEntity::new, CONTRACT_BOX.get()).build(null));
     public static final RegistryObject<MenuType<ContractBoxMenu>> CONTRACT_BOX_MENU =
             MENU_TYPES.register("contract_box", () -> IForgeMenuType.create(
-                    (windowId, inv, data) -> new ContractBoxMenu(windowId, inv)));
+                    (windowId, inv, data) -> new ContractBoxMenu(windowId, inv, data)));
 
     public static final RegistryObject<CreativeModeTab> CONTRACTS_TAB =
             CREATIVE_MODE_TABS.register("contracts_tab", () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.farmerscontracts"))
                     .icon(() -> CONTRACT_BOARD_ITEM.get().getDefaultInstance())
                     .displayItems((parameters, output) -> {
-                        // Unbreakable boards (Config.boardCanBreak() == false, ported from
-                        // Bountiful's board.canBreak) must not be craftable either - see the
-                        // recipe's own "forge:conditions" gate and BoardCraftableCondition.
                         if (Config.boardCanBreak()) {
                             output.accept(CONTRACT_BOARD_ITEM.get());
                         }
@@ -131,7 +128,6 @@ public class FarmersContractsMod {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
-    // The ItemProperties registration lives in ClientSetup, not inline here - see that class for why.
     private void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             MenuScreens.register(CONTRACT_BOARD_MENU.get(), ContractBoardScreen::new);
@@ -154,8 +150,6 @@ public class FarmersContractsMod {
 
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
-        // Needs a fully-ticking world (chunk loading, block placement) - unlike BalanceCheck,
-        // which is pure data-driven math and runs earlier in onServerStarting.
         if (SelfTest.isRequested()) {
             boolean passed = SelfTest.run(event.getServer());
             LOGGER.info(passed ? "SelfTest passed" : "SelfTest FAILED");
@@ -177,9 +171,7 @@ public class FarmersContractsMod {
     public void onItemTooltip(ItemTooltipEvent event) {
         ItemStack stack = event.getItemStack();
         boolean isTicket = stack.getItem() instanceof ContractTicketItem;
-        // A sealed box's contents are guaranteed to exactly match the order (see
-        // ContractBoxBlock.trySeal) - its tooltip is the ticket's tooltip with every line already
-        // shown as fulfilled (N/N), not recomputed from anything.
+
         boolean isSealedBox = !isTicket && stack.is(CONTRACT_BOX_ITEM.get());
         if (!isTicket && !isSealedBox) {
             return;

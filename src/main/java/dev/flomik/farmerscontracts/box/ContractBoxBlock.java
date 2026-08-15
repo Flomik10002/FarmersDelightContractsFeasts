@@ -37,6 +37,7 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.network.NetworkHooks;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -45,7 +46,6 @@ import java.util.List;
 import java.util.Set;
 
 public class ContractBoxBlock extends BaseEntityBlock {
-
     public static final BooleanProperty SEALED = BooleanProperty.create("sealed");
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     private static final VoxelShape SHAPE = Block.box(3.5, 0, 3.5, 12.5, 9, 12.5);
@@ -102,9 +102,6 @@ public class ContractBoxBlock extends BaseEntityBlock {
         return entity instanceof MenuProvider provider ? provider : null;
     }
 
-    // No useItemOn()/useWithoutItem() split before 1.20.5 - both the "seal with a ticket" and
-    // "open the GUI" paths live in the single use() entry point (mirrors ContractBoardBlock.use()
-    // in this same branch).
     @Override
     public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (player.isShiftKeyDown()) {
@@ -134,15 +131,11 @@ public class ContractBoxBlock extends BaseEntityBlock {
 
         MenuProvider menuProvider = state.getMenuProvider(level, pos);
         if (menuProvider != null && player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.openMenu(menuProvider);
+            NetworkHooks.openScreen(serverPlayer, menuProvider, ContractBoxMenu::writeAllowedItems);
         }
         return InteractionResult.CONSUME;
     }
 
-    // A sealed box surviving a break just carries its contents + contract data forward as an item
-    // (BlockItem.updateCustomBlockEntityTag restores it automatically on the next placement) -
-    // the pre-components equivalent of the loot_table copy_components function used on the
-    // NeoForge 1.21.1 side.
     @Override
     public List<ItemStack> getDrops(BlockState state, LootParams.Builder params) {
         if (params.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof ContractBoxBlockEntity box) {
@@ -156,8 +149,6 @@ public class ContractBoxBlock extends BaseEntityBlock {
         return super.getDrops(state, params);
     }
 
-    // Public (not package-private, unlike ContractBoardBlock.tryTurnIn) so SelfTest - which lives
-    // in dev.flomik.farmerscontracts.board, not this package - can exercise it directly.
     public boolean trySeal(ServerLevel level, ServerPlayer player, BlockPos pos, ItemStack ticket) {
         if (!(level.getBlockEntity(pos) instanceof ContractBoxBlockEntity box)) {
             return false;
@@ -174,13 +165,8 @@ public class ContractBoxBlock extends BaseEntityBlock {
             return true;
         }
 
-        // See ContractBoardBlock.tryTurnIn for why objectives are merged by item first.
         List<GeneratedLine> objectives = GeneratedLine.mergeByItem(contract.objectives());
 
-        // The ticket is proof that the box's contents are exactly this order, nothing else - so
-        // any item that isn't part of the order at all, or an amount that's off in either
-        // direction, fails the seal (docs/contract_box.md: "все предметы внутри соответствуют
-        // ТОЛЬКО этому заказу").
         Set<Item> allowedItems = new HashSet<>();
         for (GeneratedLine objective : objectives) {
             allowedItems.add(objective.stack().getItem());

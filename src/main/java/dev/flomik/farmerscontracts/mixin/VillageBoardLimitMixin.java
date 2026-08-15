@@ -24,26 +24,8 @@ import java.lang.reflect.Field;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-// Caps how many Contract Boards can spawn in a single village. VillagePoolInjector adds the board
-// into the same village/<type>/houses pool vanilla draws regular houses from (weight 1), which is
-// enough to make it appear with correctly-vanilla rotation/placement, but a village can have many
-// house connector slots, so without a cap the same weighted roll can independently succeed more
-// than once per village.
-//
-// Bountiful solves the identical problem with a Mixin into JigsawPlacement$Placer#tryPlacingChildren
-// (filtering the per-connector candidate list live, see docs/village-board-spawn.md) - not
-// reproduced 1:1 here (their exact injection point relies on a later Mojang refactor not present
-// even in 1.20.1's decompiled source, same as main). Achieves the same outcome more simply:
-// JigsawPlacement.addPieces's returned GenerationStub wraps a Consumer<StructurePiecesBuilder> that
-// vanilla eventually calls with the real builder - we hand it a thin proxy that forwards every
-// piece except board pieces past the first, so the real builder (and everything that inspects it
-// afterward) never sees the extras. Safe because within this consumer, JigsawPlacement's own
-// piece-adding loop only ever calls builder.addPiece(...) (list.forEach(builder::addPiece)) - none
-// of StructurePiecesBuilder's other methods (findCollisionPiece, getBoundingBox, etc.) are touched
-// during this call.
 @Mixin(JigsawPlacement.class)
 public class VillageBoardLimitMixin {
-
     private static final int MAX_BOARDS_PER_VILLAGE = 1;
 
     @Inject(method = "addPieces", at = @At("RETURN"), cancellable = true)

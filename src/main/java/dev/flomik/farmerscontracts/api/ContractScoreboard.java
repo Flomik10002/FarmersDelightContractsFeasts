@@ -9,15 +9,7 @@ import net.minecraft.world.scores.Score;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
-/**
- * Mod-integration hook: tracks contract-completion points on a vanilla scoreboard objective
- * so external systems (command block chains, other mods' scoreboard-based leveling) can read
- * them without needing a dedicated reward item. Common/Uncommon/Rare/Special award
- * {@link ContractRarity#tierPoints()} (1/2/3/4) per completion.
- */
 public final class ContractScoreboard {
-
-    // Short on purpose - safely under any vanilla objective-name length limit.
     public static final String OBJECTIVE_NAME = "fc_points";
 
     public static void awardTierPoints(ServerLevel level, ServerPlayer player, ContractRarity rarity) {

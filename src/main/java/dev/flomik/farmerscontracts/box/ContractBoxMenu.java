@@ -1,28 +1,39 @@
 package dev.flomik.farmerscontracts.box;
 
 import dev.flomik.farmerscontracts.FarmersContractsMod;
+import dev.flomik.farmerscontracts.contract.ContractContent;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
-// Same 5-slot single-row layout as vanilla's HopperMenu - one slot per order line
-// (ContractBoxBlockEntity.SLOTS), so it reuses the vanilla hopper GUI texture too.
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Predicate;
+
 public class ContractBoxMenu extends AbstractContainerMenu {
-
     private final Container container;
 
     public ContractBoxMenu(int containerId, Inventory playerInventory, Container container) {
+        this(containerId, playerInventory, container,
+                stack -> ContractBoxBlockEntity.mayContain(stack, ContractContent.objectiveItems()));
+    }
+
+    private ContractBoxMenu(int containerId, Inventory playerInventory, Container container, Predicate<ItemStack> insertFilter) {
         super(FarmersContractsMod.CONTRACT_BOX_MENU.get(), containerId);
         checkContainerSize(container, ContractBoxBlockEntity.SLOTS);
         this.container = container;
         container.startOpen(playerInventory.player);
 
         for (int i = 0; i < ContractBoxBlockEntity.SLOTS; i++) {
-            this.addSlot(new BoxSlot(container, i, 44 + i * 18, 20));
+            this.addSlot(new BoxSlot(container, i, 44 + i * 18, 20, insertFilter));
         }
 
         for (int row = 0; row < 3; row++) {
@@ -36,15 +47,25 @@ public class ContractBoxMenu extends AbstractContainerMenu {
         }
     }
 
-    // Unlike the NeoForge 1.21.1 side, this does NOT need a client-prediction container fix:
-    // vanilla 1.20.1's SimpleContainer#setItem only ever clamps against the no-arg
-    // getMaxStackSize() (container-level, default 64) - there is no item-aware
-    // getMaxStackSize(ItemStack) hook on this version's Container/SimpleContainer for it to
-    // consult, so a client-side fallback SimpleContainer here never truncates a merged
-    // non-stackable stack back down to 1 the way it does on main (see ContractBoxMenu.java there
-    // for the full writeup of that bug).
     public ContractBoxMenu(int containerId, Inventory playerInventory) {
-        this(containerId, playerInventory, new SimpleContainer(ContractBoxBlockEntity.SLOTS));
+        this(containerId, playerInventory, (FriendlyByteBuf) null);
+    }
+
+    public ContractBoxMenu(int containerId, Inventory playerInventory, @Nullable FriendlyByteBuf data) {
+        this(containerId, playerInventory, new SimpleContainer(ContractBoxBlockEntity.SLOTS), readInsertFilter(data));
+    }
+
+    public static void writeAllowedItems(FriendlyByteBuf buffer) {
+        buffer.writeCollection(ContractContent.objectiveItems(),
+                (buf, item) -> buf.writeVarInt(BuiltInRegistries.ITEM.getId(item)));
+    }
+
+    private static Predicate<ItemStack> readInsertFilter(@Nullable FriendlyByteBuf data) {
+        if (data == null) {
+            return stack -> true;
+        }
+        Set<Item> allowedItems = new HashSet<>(data.readList(buf -> BuiltInRegistries.ITEM.byId(buf.readVarInt())));
+        return stack -> ContractBoxBlockEntity.mayContain(stack, allowedItems);
     }
 
     @Override
@@ -79,18 +100,13 @@ public class ContractBoxMenu extends AbstractContainerMenu {
         return result;
     }
 
-    // Vanilla's moveItemStackTo() skips its own "merge into an already-occupied matching slot"
-    // phase entirely whenever ItemStack#isStackable() is false (true for anything with
-    // maxStackSize 1) - it falls straight to "only place into an empty slot", so shift-clicking
-    // several non-stackable items one at a time would otherwise burn a fresh box slot per item
-    // instead of piling into the one slot BoxSlot#getMaxStackSize now allows. This redoes that
-    // merge phase without the isStackable() gate, for the into-box direction only.
     private boolean moveIntoBox(ItemStack moving) {
         boolean changed = false;
         for (int i = 0; i < ContractBoxBlockEntity.SLOTS && !moving.isEmpty(); i++) {
             Slot slot = this.slots.get(i);
             ItemStack existing = slot.getItem();
-            if (!existing.isEmpty() && ItemStack.isSameItemSameTags(existing, moving)) {
+
+            if (!existing.isEmpty() && ItemStack.isSameItemSameTags(existing, moving) && slot.mayPlace(moving)) {
                 int room = slot.getMaxStackSize(existing) - existing.getCount();
                 if (room > 0) {
                     int move = Math.min(room, moving.getCount());
@@ -119,22 +135,22 @@ public class ContractBoxMenu extends AbstractContainerMenu {
         container.stopOpen(player);
     }
 
-    // Lets a single box slot hold more of an item than that item's own max stack size allows -
-    // needed so non-stackable objectives (Cake, Suspicious Stew, whole roasted dishes placed as
-    // blocks - all maxStackSize 1) don't need one slot per unit (ContractGenerator already caps
-    // how many units a line can ask for, but even that capped amount can exceed 1). Vanilla's
-    // container-level Container#getMaxStackSize() isn't enough on its own: both
-    // AbstractContainerMenu#clicked and #moveItemStackTo call Slot#getMaxStackSize(ItemStack),
-    // which independently re-clamps to Math.min(slot max, stack's own max) - so the override has
-    // to live on the Slot itself too (see ContractBoxBlockEntity#MAX_STACK_SIZE for the other half).
     private static class BoxSlot extends Slot {
-        BoxSlot(Container container, int index, int x, int y) {
+        private final Predicate<ItemStack> insertFilter;
+
+        BoxSlot(Container container, int index, int x, int y, Predicate<ItemStack> insertFilter) {
             super(container, index, x, y);
+            this.insertFilter = insertFilter;
         }
 
         @Override
         public int getMaxStackSize(ItemStack stack) {
             return ContractBoxBlockEntity.MAX_STACK_SIZE;
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return insertFilter.test(stack);
         }
     }
 }
