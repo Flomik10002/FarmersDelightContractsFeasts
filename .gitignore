@@ -24,3 +24,6 @@ hs_err_pid*
 # Common working directory
 run
 
+# CurseForge publishing: API token and local "already uploaded" bookkeeping
+.env.curseforge
+.curseforge-published.json
