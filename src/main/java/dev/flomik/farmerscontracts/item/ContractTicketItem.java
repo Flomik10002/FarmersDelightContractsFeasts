@@ -12,7 +12,6 @@ import net.minecraft.world.level.Level;
 import java.util.List;
 
 public class ContractTicketItem extends Item {
-
     private static final String CONTRACT_KEY = "Contract";
 
     public ContractTicketItem(Properties properties) {

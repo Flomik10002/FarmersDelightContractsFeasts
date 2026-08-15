@@ -5,7 +5,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 
 public class ContractProgress extends SavedData {
-
     private static final String KEY = "farmerscontracts_progress";
 
     private long completedContracts = 0L;

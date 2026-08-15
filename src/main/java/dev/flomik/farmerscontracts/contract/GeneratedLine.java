@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 public record GeneratedLine(ItemStack stack, int amount, double worth) {
-
     public CompoundTag toNbt() {
         CompoundTag tag = new CompoundTag();
         tag.put("Stack", stack.save(new CompoundTag()));

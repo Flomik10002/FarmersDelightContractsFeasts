@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public record RewardBundle(List<GeneratedLine> items, int xp) {
-
     public CompoundTag toNbt() {
         CompoundTag tag = new CompoundTag();
         ListTag itemsTag = new ListTag();

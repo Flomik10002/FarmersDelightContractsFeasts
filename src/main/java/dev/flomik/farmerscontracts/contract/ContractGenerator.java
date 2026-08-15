@@ -13,7 +13,6 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class ContractGenerator {
-
     private static final long TICKS_PER_SECOND = 20L;
     private static final long BASE_TIME_SECONDS = 2L * 3600L;
     private static final double SECONDS_PER_WORTH = 20.0;
@@ -199,12 +198,6 @@ public final class ContractGenerator {
         return entries.get(entries.size() - 1);
     }
 
-    // A single objective line must never demand more physical slots (inventory, or a Contract Box)
-    // than a player can realistically carry. Pool "amount" ranges are authored without regard to
-    // an item's own max stack size, so e.g. Cake or Suspicious Stew (both maxStackSize 1) could
-    // otherwise roll amounts in the tens - that fits fine for a stack-64 item across a couple of
-    // slots, but is unfulfillable for a non-stackable one. Capping at this many slots' worth keeps
-    // every line carryable regardless of what item it resolves to.
     private static final int MAX_SLOTS_PER_OBJECTIVE_LINE = 8;
 
     private static GeneratedLine resolve(ContractPoolEntry entry, RandomSource random, Set<Item> usedItems) {

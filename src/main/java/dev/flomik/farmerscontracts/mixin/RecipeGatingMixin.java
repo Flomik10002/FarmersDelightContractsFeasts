@@ -20,14 +20,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 
-// See RecipeGating for why this exists (Fabric has no equivalent of Forge's datapack-level
-// recipe conditions). Runs once per resource reload, right after RecipeManager has finished
-// building its recipes/byName maps - strips out any gated recipe whose config condition is
-// currently false, rebuilding both maps without it. 1.20.1 predates the RecipeHolder wrapper
-// (added 1.20.2+), so recipes are keyed directly by ResourceLocation here.
 @Mixin(RecipeManager.class)
 public abstract class RecipeGatingMixin {
-
     @Shadow
     private Map<RecipeType<?>, Map<ResourceLocation, Recipe<?>>> recipes;
 

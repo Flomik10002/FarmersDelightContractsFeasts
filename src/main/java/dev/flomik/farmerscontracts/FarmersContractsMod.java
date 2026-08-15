@@ -28,6 +28,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.world.flag.FeatureFlags;
+import net.fabricmc.fabric.api.screenhandler.v1.ExtendedScreenHandlerType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
@@ -61,9 +62,10 @@ public class FarmersContractsMod implements ModInitializer {
     public static final BlockEntityType<ContractBoxBlockEntity> CONTRACT_BOX_ENTITY = register(
             BuiltInRegistries.BLOCK_ENTITY_TYPE, "contract_box",
             BlockEntityType.Builder.of(ContractBoxBlockEntity::new, CONTRACT_BOX).build(null));
+
     public static final MenuType<ContractBoxMenu> CONTRACT_BOX_MENU = register(
             BuiltInRegistries.MENU, "contract_box",
-            new MenuType<>(ContractBoxMenu::new, FeatureFlags.VANILLA_SET));
+            new ExtendedScreenHandlerType<>(ContractBoxMenu::new));
 
     public static final CreativeModeTab CONTRACTS_TAB = register(
             BuiltInRegistries.CREATIVE_MODE_TAB, "contracts_tab",
@@ -71,9 +73,6 @@ public class FarmersContractsMod implements ModInitializer {
                     .title(Component.translatable("itemGroup.farmerscontracts"))
                     .icon(() -> new ItemStack(CONTRACT_BOARD_ITEM))
                     .displayItems((parameters, output) -> {
-                        // Unbreakable boards (Config.boardCanBreak() == false, ported from
-                        // Bountiful's board.canBreak) must not be craftable either - see
-                        // RecipeGating, registered below.
                         if (Config.boardCanBreak()) {
                             output.accept(CONTRACT_BOARD_ITEM);
                         }
@@ -88,14 +87,8 @@ public class FarmersContractsMod implements ModInitializer {
     public void onInitialize() {
         Config.load();
 
-        // Force registration-holder classes to load before Fabric freezes the built-in
-        // registries at the end of mod init - their fields are otherwise only touched lazily
-        // from block/item/villager-AI code paths, which by then run too late and crash with
-        // "Registry is already frozen".
         var ignoredMemory = ContractVillagerMemories.NEAREST_BOARD;
 
-        // Fabric equivalent of the Forge branch's forge:conditions-gated recipes - see
-        // RecipeGating/mixin.RecipeGatingMixin.
         RecipeGating.register(new ResourceLocation(MODID, "contract_board"), Config::boardCanBreak);
         RecipeGating.register(new ResourceLocation(MODID, "contract_box"),
                 () -> Config.deliveryMode() != Config.DeliveryMode.TICKET_ONLY);
@@ -117,8 +110,6 @@ public class FarmersContractsMod implements ModInitializer {
         });
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            // Needs a fully-ticking world (chunk loading, block placement) - unlike BalanceCheck,
-            // which is pure data-driven math and runs earlier at SERVER_STARTING.
             if (SelfTest.isRequested()) {
                 boolean passed = SelfTest.run(server);
                 LOGGER.info(passed ? "SelfTest passed" : "SelfTest FAILED");

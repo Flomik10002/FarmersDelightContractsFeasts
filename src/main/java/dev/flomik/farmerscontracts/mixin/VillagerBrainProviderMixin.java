@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Villager.class)
 public class VillagerBrainProviderMixin {
-
     @Inject(method = "brainProvider", at = @At("RETURN"), cancellable = true)
     private void farmerscontracts$extendMemoryTypes(CallbackInfoReturnable<Brain.Provider<Villager>> cir) {
         ImmutableList<MemoryModuleType<?>> extended = ImmutableList.<MemoryModuleType<?>>builder()

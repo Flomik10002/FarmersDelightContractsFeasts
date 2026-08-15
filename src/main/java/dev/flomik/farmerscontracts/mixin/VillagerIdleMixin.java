@@ -17,7 +17,6 @@ import java.util.List;
 
 @Mixin(VillagerGoalPackages.class)
 public class VillagerIdleMixin {
-
     @Inject(method = "getIdlePackage", at = @At("RETURN"), cancellable = true)
     private static void farmerscontracts$addBoardVisit(
             VillagerProfession profession,

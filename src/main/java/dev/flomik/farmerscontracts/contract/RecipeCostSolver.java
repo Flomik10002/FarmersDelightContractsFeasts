@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class RecipeCostSolver {
-
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static final double STAGE_MARKUP = 1.15;
@@ -145,8 +144,7 @@ public final class RecipeCostSolver {
 
     private static double unknownItemCost(ResourceLocation itemId) {
         Item item = BuiltInRegistries.ITEM.get(itemId);
-        // Forge patches a (ItemStack, LivingEntity) context-aware overload onto vanilla's Item;
-        // the no-arg form is the one that actually exists upstream/on Fabric.
+
         FoodProperties food = item.getFoodProperties();
         if (food == null) {
             return FALLBACK_COST;

@@ -9,7 +9,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 
 public class ContractBoardScreen extends AbstractContainerScreen<ContractBoardMenu> {
-
     private static final ResourceLocation TEXTURE =
             new ResourceLocation(FarmersContractsMod.MODID, "textures/gui/contract_board.png");
 

@@ -12,12 +12,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * A minimal fake server player for headless tests (see {@code board.SelfTest}) - ported from
- * MinecraftForge's {@code net.minecraftforge.common.util.FakePlayer} (1.20.1 branch), which is
- * itself plain vanilla API (ServerPlayer/ServerGamePacketListenerImpl/Connection) with no
- * Forge-specific behavior beyond the no-op overrides themselves.
- */
 public class FakePlayer extends ServerPlayer {
     public FakePlayer(ServerLevel level, GameProfile profile) {
         super(level.getServer(), level, profile);

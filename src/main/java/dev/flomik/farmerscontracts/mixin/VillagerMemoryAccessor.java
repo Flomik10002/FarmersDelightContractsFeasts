@@ -10,7 +10,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(Villager.class)
 public interface VillagerMemoryAccessor {
-
     @Accessor("MEMORY_TYPES")
     static ImmutableList<MemoryModuleType<?>> farmerscontracts$memoryTypes() {
         throw new UnsupportedOperationException("Mixin accessor not applied");

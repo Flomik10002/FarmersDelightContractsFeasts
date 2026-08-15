@@ -16,7 +16,6 @@ public record GeneratedContract(
         RewardBundle rewardBundle,
         long expiresAtGameTime
 ) {
-
     public CompoundTag toNbt() {
         CompoundTag tag = new CompoundTag();
         tag.putString("CustomerId", customerId.toString());
